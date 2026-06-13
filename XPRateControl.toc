@@ -1,0 +1,8 @@
+## Interface: 30300
+## Title: XP Rate Control
+## Notes: Clean GUI for experience rate adjustments and Joyous Journeys on WotLK private servers.
+## Author: Zendevve
+## Version: 1.0
+## SavedVariables: XPRateControlDB
+
+XPRateControl.lua
