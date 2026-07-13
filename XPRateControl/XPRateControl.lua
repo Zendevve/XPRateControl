@@ -522,8 +522,8 @@ footer:SetTextColor(CLR.muted[1], CLR.muted[2], CLR.muted[3])
 ------------------------------------------------------------
 local minimapButton = CreateFrame("Button", "XPRateMinimapButton", Minimap)
 minimapButton:SetSize(31, 31)
-minimapButton:SetFrameStrata("MEDIUM")
-minimapButton:SetFrameLevel(10)
+minimapButton:SetFrameStrata("HIGH")
+minimapButton:SetFrameLevel(20)
 
 minimapButton.icon = minimapButton:CreateTexture("XPRateMinimapButtonIcon", "BACKGROUND")
 minimapButton.icon:SetSize(18, 18)
@@ -562,6 +562,8 @@ local function UpdateMinimapButtonPosition()
     local y = MINIMAP_RADIUS * math.sin(math.rad(angle))
     minimapButton:ClearAllPoints()
     minimapButton:SetPoint("CENTER", Minimap, "CENTER", x, y)
+    minimapButton:SetFrameStrata("HIGH")
+    minimapButton:SetFrameLevel(20)
 end
 
 -- Drag
