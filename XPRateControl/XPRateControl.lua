@@ -525,9 +525,9 @@ minimapButton:SetSize(31, 31)
 minimapButton:SetFrameStrata("HIGH")
 minimapButton:SetFrameLevel(20)
 
-minimapButton.icon = minimapButton:CreateTexture("XPRateMinimapButtonIcon", "BACKGROUND")
+minimapButton.icon = minimapButton:CreateTexture("XPRateMinimapButtonIcon", "ARTWORK")
 minimapButton.icon:SetSize(18, 18)
-minimapButton.icon:SetPoint("CENTER")
+minimapButton.icon:SetPoint("CENTER", minimapButton, "CENTER", 0, 0)
 minimapButton.icon:SetTexture("Interface\\Icons\\INV_Misc_Hourglass_01")
 minimapButton.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 
@@ -538,13 +538,13 @@ border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
 
 local highlight = minimapButton:CreateTexture("XPRateMinimapButtonHighlight", "HIGHLIGHT")
 highlight:SetSize(31, 31)
-highlight:SetPoint("CENTER")
+highlight:SetPoint("CENTER", minimapButton, "CENTER", 0, 0)
 highlight:SetTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
 
 -- Glow ring (animated pulse for "active" feel)
 local glowTex = minimapButton:CreateTexture(nil, "OVERLAY")
 glowTex:SetSize(42, 42)
-glowTex:SetPoint("CENTER")
+glowTex:SetPoint("CENTER", minimapButton, "CENTER", 0, 0)
 glowTex:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
 glowTex:SetAlpha(0)
 glowTex.isAnimating = false
