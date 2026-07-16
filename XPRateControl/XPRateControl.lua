@@ -688,27 +688,32 @@ minimapButton:SetSize(31, 31)
 minimapButton:SetFrameStrata("HIGH")
 minimapButton:SetFrameLevel(20)
 
-minimapButton.icon = minimapButton:CreateTexture("XPRateMinimapButtonIcon", "ARTWORK")
-minimapButton.icon:SetSize(18, 18)
+local background = minimapButton:CreateTexture("XPRateMinimapButtonBackground", "BACKGROUND")
+background:SetSize(21, 21)
+background:SetPoint("CENTER", minimapButton, "CENTER", 0, 0)
+background:SetTexture("Interface/Minimap/UI-Minimap-Background")
+
+minimapButton.icon = minimapButton:CreateTexture("XPRateMinimapButtonIcon", "BORDER")
+minimapButton.icon:SetSize(20, 20)
 minimapButton.icon:SetPoint("CENTER", minimapButton, "CENTER", 0, 0)
-minimapButton.icon:SetTexture("Interface\\Icons\\INV_Misc_Hourglass_01")
+minimapButton.icon:SetTexture("Interface/Icons/inv_misc_hourglass_01")
 minimapButton.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 
-local border = minimapButton:CreateTexture("XPRateMinimapButtonBorder", "OVERLAY")
+local border = minimapButton:CreateTexture("XPRateMinimapButtonBorder", "ARTWORK")
 border:SetSize(53, 53)
-border:SetPoint("TOPLEFT", minimapButton, "TOPLEFT", -11, 11)
-border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+border:SetPoint("CENTER", minimapButton, "CENTER", 0, 0)
+border:SetTexture("Interface/Minimap/MiniMap-TrackingBorder")
 
 local highlight = minimapButton:CreateTexture("XPRateMinimapButtonHighlight", "HIGHLIGHT")
 highlight:SetSize(31, 31)
 highlight:SetPoint("CENTER", minimapButton, "CENTER", 0, 0)
-highlight:SetTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+highlight:SetTexture("Interface/Minimap/UI-Minimap-ZoomButton-Highlight")
 
 -- Glow ring (animated pulse for "active" feel)
 local glowTex = minimapButton:CreateTexture(nil, "OVERLAY")
 glowTex:SetSize(42, 42)
 glowTex:SetPoint("CENTER", minimapButton, "CENTER", 0, 0)
-glowTex:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+glowTex:SetTexture("Interface/Minimap/MiniMap-TrackingBorder")
 glowTex:SetAlpha(0)
 glowTex.isAnimating = false
 
@@ -739,11 +744,14 @@ minimapButton:SetScript("OnDragStart", function(self)
         local cx, cy = GetCursorPosition()
         local mx, my = Minimap:GetCenter()
         local scale = Minimap:GetEffectiveScale()
-        cx, cy = cx / scale, cy / scale
-        local angle = math.deg(math.atan2(cy - my, cx - mx))
-        if angle < 0 then angle = angle + 360 end
-        XPRateControlDB.minimapPos = angle
-        UpdateMinimapButtonPosition()
+        if mx and my and scale then
+            local x = cx - (mx * scale)
+            local y = cy - (my * scale)
+            local angle = math.deg(math.atan2(y, x))
+            if angle < 0 then angle = angle + 360 end
+            XPRateControlDB.minimapPos = angle
+            UpdateMinimapButtonPosition()
+        end
     end)
 end)
 
