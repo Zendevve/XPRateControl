@@ -116,7 +116,7 @@ end
 -- Main UI Frame
 ------------------------------------------------------------
 local frame = CreateFrame("Frame", "XPRateControlFrame", UIParent)
-frame:SetSize(280, 380)
+frame:SetSize(280, 460)
 frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 frame:SetFrameStrata("HIGH")
 frame:SetMovable(true)
@@ -453,10 +453,173 @@ separator:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
 separator:SetVertexColor(CLR.panelEdge[1], CLR.panelEdge[2], CLR.panelEdge[3], 0.4)
 
 ------------------------------------------------------------
+-- Rested XP Auto-Switching Backend
+------------------------------------------------------------
+local restedRateEdit, normalRateEdit
+local restedFrame = CreateFrame("Frame")
+restedFrame:RegisterEvent("UPDATE_EXHAUSTION")
+restedFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+
+local lastRestedState = nil
+
+local function CheckRestedXP()
+    local db = XPRateControlDB
+    if not db or not db.autoRested then return end
+
+    local isRested = (GetXPExhaustion() and GetXPExhaustion() > 0) or false
+    if lastRestedState == nil or isRested ~= lastRestedState then
+        lastRestedState = isRested
+        local targetRate = isRested and db.restedRate or db.normalRate
+        
+        UpdateUIFromValue(targetRate)
+        SendXPCommand(targetRate)
+        db.lastRate = targetRate
+        
+        local stateStr = isRested and "|cff00ccffRested|r" or "|cffffffffNormal|r"
+        PrintMessage("Rested state changed to " .. stateStr .. ". Auto-switched XP rate to " .. FormatRate(targetRate) .. "x")
+    end
+end
+
+restedFrame:SetScript("OnEvent", function(self, event, ...)
+    if event == "PLAYER_ENTERING_WORLD" then
+        CheckRestedXP()
+    elseif event == "UPDATE_EXHAUSTION" then
+        CheckRestedXP()
+    end
+end)
+
+local function UpdateRestedSettings()
+    local rVal = tonumber(restedRateEdit:GetText())
+    local nVal = tonumber(normalRateEdit:GetText())
+    
+    if rVal then
+        XPRateControlDB.restedRate = ClampRate(rVal)
+        restedRateEdit:SetText(FormatRate(XPRateControlDB.restedRate))
+    else
+        restedRateEdit:SetText(FormatRate(XPRateControlDB.restedRate or 2.0))
+    end
+    
+    if nVal then
+        XPRateControlDB.normalRate = ClampRate(nVal)
+        normalRateEdit:SetText(FormatRate(XPRateControlDB.normalRate))
+    else
+        normalRateEdit:SetText(FormatRate(XPRateControlDB.normalRate or 1.0))
+    end
+
+    if XPRateControlDB.autoRested then
+        lastRestedState = nil
+        CheckRestedXP()
+    end
+end
+
+------------------------------------------------------------
+-- Auto Rested XP Section
+------------------------------------------------------------
+local sectionRested = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+sectionRested:SetPoint("TOPLEFT", separator, "BOTTOMLEFT", 0, -8)
+sectionRested:SetText("AUTO RESTED XP")
+sectionRested:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+
+local restedCheckbox = CreateFrame("CheckButton", "XPRateRestedCheckbox", frame, "UICheckButtonTemplate")
+restedCheckbox:SetSize(22, 22)
+restedCheckbox:SetPoint("TOPLEFT", sectionRested, "BOTTOMLEFT", 0, -6)
+
+local restedCheckLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+restedCheckLabel:SetPoint("LEFT", restedCheckbox, "RIGHT", 6, 0)
+restedCheckLabel:SetText("Auto-switch rates")
+restedCheckLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+
+-- Rested Rate Input
+local restedRateLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+restedRateLabel:SetPoint("TOPLEFT", restedCheckbox, "BOTTOMLEFT", 4, -10)
+restedRateLabel:SetText("Rested:")
+restedRateLabel:SetTextColor(CLR.muted[1], CLR.muted[2], CLR.muted[3])
+
+restedRateEdit = CreateFrame("EditBox", "XPRateRestedRateEdit", frame)
+restedRateEdit:SetSize(40, 20)
+restedRateEdit:SetPoint("LEFT", restedRateLabel, "RIGHT", 6, 0)
+restedRateEdit:SetAutoFocus(false)
+restedRateEdit:SetFontObject("GameFontHighlightSmall")
+restedRateEdit:SetJustifyH("CENTER")
+restedRateEdit:SetMaxLetters(4)
+restedRateEdit:SetBackdrop({
+    bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 10, edgeSize = 10,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 }
+})
+restedRateEdit:SetBackdropColor(0.02, 0.03, 0.06, 0.85)
+restedRateEdit:SetBackdropBorderColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.6)
+
+-- Normal Rate Input
+local normalRateLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+normalRateLabel:SetPoint("LEFT", restedRateEdit, "RIGHT", 24, 0)
+normalRateLabel:SetText("Normal:")
+normalRateLabel:SetTextColor(CLR.muted[1], CLR.muted[2], CLR.muted[3])
+
+normalRateEdit = CreateFrame("EditBox", "XPRateNormalRateEdit", frame)
+normalRateEdit:SetSize(40, 20)
+normalRateEdit:SetPoint("LEFT", normalRateLabel, "RIGHT", 6, 0)
+normalRateEdit:SetAutoFocus(false)
+normalRateEdit:SetFontObject("GameFontHighlightSmall")
+normalRateEdit:SetJustifyH("CENTER")
+normalRateEdit:SetMaxLetters(4)
+normalRateEdit:SetBackdrop({
+    bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 10, edgeSize = 10,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 }
+})
+normalRateEdit:SetBackdropColor(0.02, 0.03, 0.06, 0.85)
+normalRateEdit:SetBackdropBorderColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.6)
+
+-- Handlers for the inputs
+restedRateEdit:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+restedRateEdit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+restedRateEdit:SetScript("OnEditFocusLost", UpdateRestedSettings)
+
+normalRateEdit:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
+normalRateEdit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+normalRateEdit:SetScript("OnEditFocusLost", UpdateRestedSettings)
+
+restedCheckbox:SetScript("OnClick", function(self)
+    local enabled = (self:GetChecked() == 1) and true or false
+    XPRateControlDB.autoRested = enabled
+    PrintMessage("Auto Rested XP switching " .. (enabled and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
+    if enabled then
+        lastRestedState = nil
+        CheckRestedXP()
+    end
+end)
+
+-- Tooltips
+restedCheckbox:SetScript("OnEnter", function(self)
+    ShowTooltip(self, "Automatically switch XP rates depending on whether you have Rested XP.")
+end)
+restedCheckbox:SetScript("OnLeave", HideTooltip)
+
+restedRateEdit:SetScript("OnEnter", function(self)
+    ShowTooltip(self, "XP rate to use while you have Rested XP.")
+end)
+restedRateEdit:SetScript("OnLeave", HideTooltip)
+
+normalRateEdit:SetScript("OnEnter", function(self)
+    ShowTooltip(self, "XP rate to use when you do not have Rested XP.")
+end)
+normalRateEdit:SetScript("OnLeave", HideTooltip)
+
+local separator2 = frame:CreateTexture(nil, "ARTWORK")
+separator2:SetPoint("TOPLEFT", separator, "BOTTOMLEFT", 0, -82)
+separator2:SetPoint("TOPRIGHT", separator, "BOTTOMRIGHT", 0, -82)
+separator2:SetHeight(1)
+separator2:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
+separator2:SetVertexColor(CLR.panelEdge[1], CLR.panelEdge[2], CLR.panelEdge[3], 0.4)
+
+------------------------------------------------------------
 -- Joyous Journeys Section
 ------------------------------------------------------------
 local sectionJJ = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-sectionJJ:SetPoint("TOPLEFT", separator, "BOTTOMLEFT", 0, -8)
+sectionJJ:SetPoint("TOPLEFT", separator2, "BOTTOMLEFT", 0, -8)
 sectionJJ:SetText("JOYOUS JOURNEYS")
 sectionJJ:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
 
@@ -651,10 +814,20 @@ initFrame:SetScript("OnEvent", function(self, event, loadedAddon)
     if db.showMinimap == nil then db.showMinimap = true end
     if db.lastRate    == nil then db.lastRate    = DEFAULT_RATE end
     if db.jjEnabled   == nil then db.jjEnabled   = true end
+    if db.autoRested  == nil then db.autoRested  = false end
+    if db.restedRate  == nil then db.restedRate  = 2.0 end
+    if db.normalRate  == nil then db.normalRate  = 1.0 end
 
     UpdateUIFromValue(db.lastRate)
     jjCheckbox:SetChecked(db.jjEnabled)
+    restedCheckbox:SetChecked(db.autoRested)
+    restedRateEdit:SetText(FormatRate(db.restedRate))
+    normalRateEdit:SetText(FormatRate(db.normalRate))
     UpdateMinimapButtonPosition()
+
+    if db.autoRested then
+        CheckRestedXP()
+    end
 
     if db.showMinimap then
         minimapButton:Show()
