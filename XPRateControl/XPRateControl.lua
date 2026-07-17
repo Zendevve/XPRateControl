@@ -284,7 +284,7 @@ local function CreateSectionHeader(parent, name, iconPath, accentColor)
     stripe:SetVertexColor(accentColor[1], accentColor[2], accentColor[3])
     
     local icon = parent:CreateTexture(nil, "ARTWORK")
-    icon:SetSize(14, 14)
+    icon:SetSize(18, 18)
     icon:SetPoint("LEFT", stripe, "RIGHT", 6, 0)
     icon:SetTexture(iconPath)
     
@@ -343,20 +343,20 @@ local originalColor = nil
 
 local minimapFlashFrame = CreateFrame("Frame")
 minimapFlashFrame:SetScript("OnUpdate", function(self, elapsed)
-    if flashTimer > 0 and XPRateMinimapButtonIcon then
+    if flashTimer > 0 and XPRateMinimapButtonBorder then
         flashTimer = flashTimer - elapsed
         if flashTimer <= 0 then
             if flashCount > 0 then
                 flashCount = flashCount - 1
                 flashState = not flashState
                 if flashState then
-                    XPRateMinimapButtonIcon:SetVertexColor(1, 0.5, 0) -- orange flash
+                    XPRateMinimapButtonBorder:SetVertexColor(1, 0.5, 0) -- orange flash
                 else
-                    XPRateMinimapButtonIcon:SetVertexColor(originalColor[1], originalColor[2], originalColor[3])
+                    XPRateMinimapButtonBorder:SetVertexColor(originalColor[1], originalColor[2], originalColor[3])
                 end
                 flashTimer = 0.15
             else
-                XPRateMinimapButtonIcon:SetVertexColor(originalColor[1], originalColor[2], originalColor[3])
+                XPRateMinimapButtonBorder:SetVertexColor(originalColor[1], originalColor[2], originalColor[3])
             end
         end
     end
@@ -381,9 +381,9 @@ local function ApplyRate(rate, silent)
         XPRateSliderWidget:SetValue(rate)
     end
     
-    if XPRateMinimapButtonIcon then
+    if XPRateMinimapButtonBorder then
         local rc = RateColor(rate)
-        XPRateMinimapButtonIcon:SetVertexColor(rc[1], rc[2], rc[3])
+        XPRateMinimapButtonBorder:SetVertexColor(rc[1], rc[2], rc[3])
     end
     
     if not silent then
@@ -1099,13 +1099,13 @@ for i = 1, 3 do
     highlight:SetBlendMode("ADD")
     
     local icon = btn:CreateTexture(nil, "ARTWORK")
-    icon:SetSize(12, 12)
-    icon:SetPoint("LEFT", btn, "LEFT", 6, 0)
+    icon:SetSize(15, 15)
+    icon:SetPoint("LEFT", btn, "LEFT", 5, 0)
     icon:SetTexture(tabIcons[i])
     btn.icon = icon
     
     local text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    text:SetPoint("LEFT", icon, "RIGHT", 4, 0)
+    text:SetPoint("LEFT", icon, "RIGHT", 3, 0)
     text:SetText(tabNames[i])
     btn.text = text
     
@@ -1339,9 +1339,9 @@ initFrame:SetScript("OnEvent", function(self, event, loadedAddon)
         UpdateAutomationStatus()
         UpdateMinimapButtonPosition()
 
-        if db.lastRate and minimapButton.icon then
+        if db.lastRate and XPRateMinimapButtonBorder then
             local rc = RateColor(db.lastRate)
-            minimapButton.icon:SetVertexColor(rc[1], rc[2], rc[3])
+            XPRateMinimapButtonBorder:SetVertexColor(rc[1], rc[2], rc[3])
         end
 
         if db.autoRested then
