@@ -121,21 +121,6 @@ frame:SetFrameStrata("HIGH")
 frame:SetMovable(true)
 frame:EnableMouse(true)
 frame:SetClampedToScreen(true)
-frame:RegisterForDrag("LeftButton")
-
-frame:SetScript("OnDragStart", frame.StartMoving)
-frame:SetScript("OnDragStop", function(self)
-    self:StopMovingOrSizing()
-    local point, _, relativePoint, xOfs, yOfs = self:GetPoint()
-    if XPRateControlDB then
-        XPRateControlDB.framePos = {
-            point = point,
-            relativePoint = relativePoint,
-            xOfs = xOfs,
-            yOfs = yOfs
-        }
-    end
-end)
 frame:Hide()
 
 tinsert(UISpecialFrames, "XPRateControlFrame")
@@ -149,24 +134,47 @@ frame:SetBackdrop({
 frame:SetBackdropColor(CLR.panelBg[1], CLR.panelBg[2], CLR.panelBg[3], 0.97)
 frame:SetBackdropBorderColor(CLR.panelEdge[1], CLR.panelEdge[2], CLR.panelEdge[3], 0.95)
 
--- Header bar
-local headerBg = frame:CreateTexture(nil, "BACKGROUND")
-headerBg:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -6)
-headerBg:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -6, -6)
-headerBg:SetHeight(32)
+-- Title Bar Drag Handle Frame
+local titleBar = CreateFrame("Frame", nil, frame)
+titleBar:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -6)
+titleBar:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -36, -6)
+titleBar:SetHeight(32)
+titleBar:EnableMouse(true)
+titleBar:RegisterForDrag("LeftButton")
+
+titleBar:SetScript("OnDragStart", function(self)
+    frame:StartMoving()
+end)
+
+titleBar:SetScript("OnDragStop", function(self)
+    frame:StopMovingOrSizing()
+    local point, _, relativePoint, xOfs, yOfs = frame:GetPoint()
+    if XPRateControlDB then
+        XPRateControlDB.framePos = {
+            point = point,
+            relativePoint = relativePoint,
+            xOfs = xOfs,
+            yOfs = yOfs
+        }
+    end
+end)
+
+-- Header bar texture
+local headerBg = titleBar:CreateTexture(nil, "BACKGROUND")
+headerBg:SetAllPoints(titleBar)
 headerBg:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
 headerBg:SetGradientAlpha("HORIZONTAL",
     CLR.headerBg[1], CLR.headerBg[2], CLR.headerBg[3], 0.95,
     CLR.panelBg[1], CLR.panelBg[2], CLR.panelBg[3], 0.3)
 
 -- Title
-local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-title:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -14)
+local title = titleBar:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+title:SetPoint("LEFT", titleBar, "LEFT", 6, 0)
 title:SetText("XP Rate Control")
 title:SetTextColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3])
 
 -- Version
-local version = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+local version = titleBar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 version:SetPoint("LEFT", title, "RIGHT", 6, 0)
 version:SetText("v1.1")
 version:SetTextColor(CLR.muted[1], CLR.muted[2], CLR.muted[3])
