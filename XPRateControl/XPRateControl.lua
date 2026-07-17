@@ -395,7 +395,7 @@ end
 ------------------------------------------------------------
 -- Tab 1: Rates UI Creation
 ------------------------------------------------------------
-CreateSectionHeader(RatesTabFrame, "XP RATE", "Interface\\Icons\\spell_holy_borrowedtime", CLR.cyan)
+CreateSectionHeader(RatesTabFrame, "XP RATE", "Interface\\AddOns\\XPRateControl\\Textures\\Icon_XPRate", CLR.cyan)
 
 -- Inset Card (Hero Element)
 local heroCard = CreateFrame("Frame", nil, RatesTabFrame)
@@ -1047,9 +1047,9 @@ jjCheckbox:SetScript("OnLeave", HideTooltip)
 local tabButtons = {}
 local tabNames = { "Rates", "Automation", "Buffs" }
 local tabIcons = {
-    "Interface\\Icons\\spell_holy_borrowedtime",
-    "Interface\\Icons\\Spell_Holy_Restoration",
-    "Interface\\Icons\\Achievement_Quests_Completed_07"
+    "Interface\\AddOns\\XPRateControl\\Textures\\Icon_XPRate",
+    "Interface\\AddOns\\XPRateControl\\Textures\\Icon_Automation",
+    "Interface\\AddOns\\XPRateControl\\Textures\\Icon_Buffs"
 }
 
 local function SetActiveTab(index)
@@ -1157,7 +1157,7 @@ background:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
 minimapButton.icon = minimapButton:CreateTexture("XPRateMinimapButtonIcon", "BACKGROUND")
 minimapButton.icon:SetSize(20, 20)
 minimapButton.icon:SetPoint("TOPLEFT", minimapButton, "TOPLEFT", 7, -5)
-minimapButton.icon:SetTexture("Interface\\Icons\\spell_holy_borrowedtime")
+minimapButton.icon:SetTexture("Interface\\AddOns\\XPRateControl\\Textures\\Icon_Minimap")
 minimapButton.icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
 
 local border = minimapButton:CreateTexture("XPRateMinimapButtonBorder", "OVERLAY")
