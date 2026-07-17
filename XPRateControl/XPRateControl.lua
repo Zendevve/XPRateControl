@@ -598,7 +598,7 @@ end)
 
 slider:SetScript("OnEnter", function(self)
     sliderBubble:Show()
-    ShowTooltip(self, "Drag to set XP rate (0x \226\136\147 2x)")
+    ShowTooltip(self, "Drag to set XP rate (0x - 2x)")
 end)
 slider:SetScript("OnLeave", function(self)
     sliderBubble:Hide()
@@ -643,7 +643,7 @@ editbox:SetScript("OnEditFocusLost", function(self)
 end)
 
 editbox:SetScript("OnEnter", function(self)
-    ShowTooltip(self, "Type a value (0.00 \226\136\147 2.00), press Enter")
+    ShowTooltip(self, "Type a value (0.00 - 2.00), press Enter")
 end)
 editbox:SetScript("OnLeave", HideTooltip)
 
@@ -740,7 +740,7 @@ local function UpdateAutomationStatus()
     local isRested = (GetXPExhaustion() and GetXPExhaustion() > 0) or false
     local currentRate = isRested and db.restedRate or db.normalRate
     local stateStr = isRested and "|cff20cc50Rested|r" or "|cffffffffNormal|r"
-    automationStatusText:SetText(string.format("Status: Active (%s) \226\134\146 %sx", stateStr, FormatRate(currentRate)))
+    automationStatusText:SetText(string.format("Status: Active (%s) -> %sx", stateStr, FormatRate(currentRate)))
 end
 
 -- Rested XP switching logic
