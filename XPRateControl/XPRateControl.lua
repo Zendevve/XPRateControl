@@ -39,14 +39,6 @@ local CLR = {
 }
 
 ------------------------------------------------------------
--- State Variables
-------------------------------------------------------------
-local pendingRate = nil
-local pendingTime = nil
-local isAwaitingConfirmation = false
-local queuedRate = nil
-
-------------------------------------------------------------
 -- Helpers
 ------------------------------------------------------------
 local function PrintMessage(msg)
@@ -176,7 +168,7 @@ title:SetTextColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3])
 -- Version
 local version = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 version:SetPoint("LEFT", title, "RIGHT", 6, 0)
-version:SetText("v1.2")
+version:SetText("v1.1")
 version:SetTextColor(CLR.muted[1], CLR.muted[2], CLR.muted[3])
 
 -- Close button
@@ -197,7 +189,7 @@ closeBorder:SetVertexColor(0.8, 0.25, 0.25, 0.7)
 
 local closeText = closeBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
 closeText:SetPoint("CENTER", closeBtn, "CENTER", 0, 1)
-closeText:SetText("\226\156\149") -- ✕ glyph
+closeText:SetText("X")
 closeText:SetTextColor(0.85, 0.85, 0.85)
 
 closeBtn:SetScript("OnEnter", function()
@@ -358,7 +350,7 @@ minimapFlashFrame:SetScript("OnUpdate", function(self, elapsed)
                 flashCount = flashCount - 1
                 flashState = not flashState
                 if flashState then
-                    XPRateMinimapButtonIcon:SetVertexColor(1, 0.5, 0)
+                    XPRateMinimapButtonIcon:SetVertexColor(1, 0.5, 0) -- orange flash
                 else
                     XPRateMinimapButtonIcon:SetVertexColor(originalColor[1], originalColor[2], originalColor[3])
                 end
@@ -378,32 +370,32 @@ local function FlashMinimapButton(targetRate)
 end
 
 ------------------------------------------------------------
--- Message Verification Helpers
+-- Unified Apply Helper
 ------------------------------------------------------------
-local function MatchSuccessMessage(msg, rate)
-    local lowerMsg = msg:lower()
-    local formattedRate = FormatRate(rate)
-    local shortRate = tostring(rate)
-    if string.find(lowerMsg, formattedRate, 1, true) or string.find(lowerMsg, shortRate, 1, true) then
-        if string.find(lowerMsg, "xp") or string.find(lowerMsg, "rate") or string.find(lowerMsg, "experience") then
-            return true
-        end
+local function ApplyRate(rate, silent)
+    rate = ClampRate(tonumber(rate) or DEFAULT_RATE)
+    SendXPCommand(rate)
+    XPRateControlDB.lastRate = rate
+    
+    if XPRateSliderWidget then
+        XPRateSliderWidget:SetValue(rate)
     end
-    return false
-end
-
-local function MatchErrorMessage(msg)
-    local lowerMsg = msg:lower()
-    if string.find(lowerMsg, "invalid") or string.find(lowerMsg, "error") or string.find(lowerMsg, "combat") or string.find(lowerMsg, "cannot") or string.find(lowerMsg, "fail") then
-        return true
+    
+    if XPRateMinimapButtonIcon then
+        local rc = RateColor(rate)
+        XPRateMinimapButtonIcon:SetVertexColor(rc[1], rc[2], rc[3])
     end
-    return false
+    
+    if not silent then
+        ShowToast(string.format("Sent %sx [OK]", FormatRate(rate)), false)
+        PrintMessage("XP rate set to " .. FormatRate(rate) .. "x")
+    end
 end
 
 ------------------------------------------------------------
 -- Tab 1: Rates UI Creation
 ------------------------------------------------------------
-CreateSectionHeader(RatesTabFrame, "XP RATE", "Interface\\Icons\\INV_Misc_Experience_01", CLR.cyan)
+CreateSectionHeader(RatesTabFrame, "XP RATE", "Interface\\Icons\\spell_holy_borrowedtime", CLR.cyan)
 
 -- Inset Card (Hero Element)
 local heroCard = CreateFrame("Frame", nil, RatesTabFrame)
@@ -613,9 +605,6 @@ local function UpdateUIFromValue(value, source)
     isUpdating = false
 end
 
--- Forward declaration of ApplyRate
-local ApplyRate
-
 slider:SetScript("OnValueChanged", function(self, value)
     local snapped = math.floor(value / RATE_STEP + 0.5) * RATE_STEP
     UpdateUIFromValue(snapped, "slider")
@@ -748,432 +737,72 @@ for i, p in ipairs(presets) do
 end
 
 ------------------------------------------------------------
--- Profile Management Helpers
-------------------------------------------------------------
-local function GetActiveProfile()
-    local db = XPRateControlDB
-    if not db or not db.profiles or not db.currentProfile then return nil end
-    return db.profiles[db.currentProfile]
-end
-
-local function SaveActiveProfileSettings()
-    local db = XPRateControlDB
-    local p = GetActiveProfile()
-    if not p or not db then return end
-    
-    p.autoRested = db.autoRested
-    p.restedRate = db.restedRate
-    p.normalRate = db.normalRate
-    p.jjEnabled = db.jjEnabled
-    p.dungeonRate = db.dungeonRate
-    p.dungeonEnabled = db.dungeonEnabled
-    p.bgRate = db.bgRate
-    p.bgEnabled = db.bgEnabled
-    p.cityRate = db.cityRate
-    p.cityEnabled = db.cityEnabled
-end
-
-local updateRestedRow
-local updateNormalRow
-local updateDungeonRow
-local updateBgRow
-local updateCityRow
-local UpdateAutomationStatus
-local EvaluateRules
-local UpdateJJUI
-
-local function LoadProfile(name)
-    local db = XPRateControlDB
-    if not db or not db.profiles or not db.profiles[name] then return end
-    db.currentProfile = name
-    local p = db.profiles[name]
-    
-    db.autoRested = p.autoRested
-    db.restedRate = p.restedRate
-    db.normalRate = p.normalRate
-    db.dungeonRate = p.dungeonRate
-    db.dungeonEnabled = p.dungeonEnabled
-    db.bgRate = p.bgRate
-    db.bgEnabled = p.bgEnabled
-    db.cityRate = p.cityRate
-    db.cityEnabled = p.cityEnabled
-    
-    if db.jjEnabled ~= p.jjEnabled then
-        SendJJCommand(p.jjEnabled)
-        db.jjEnabled = p.jjEnabled
-    end
-    
-    if XPRateSliderWidget then
-        UpdateUIFromValue(db.lastRate)
-    end
-    if XPRateRestedCheckbox then
-        XPRateRestedCheckbox:SetChecked(db.autoRested)
-    end
-    if XPRateJJCheckbox then
-        UpdateJJUI(db.jjEnabled)
-    end
-    
-    if updateRestedRow and updateNormalRow then
-        updateRestedRow()
-        updateNormalRow()
-    end
-    if updateDungeonRow and updateBgRow and updateCityRow then
-        updateDungeonRow()
-        updateBgRow()
-        updateCityRow()
-    end
-    
-    if XPRateProfileButtonWidget then
-        XPRateProfileButtonWidget:SetText("Profile: " .. name)
-    end
-    
-    UpdateAutomationStatus()
-    EvaluateRules()
-end
-
-local function ExportProfileString()
-    local name = XPRateControlDB.currentProfile
-    local p = GetActiveProfile()
-    if not p then return "" end
-    
-    local parts = {
-        "[XPRC",
-        "v1",
-        name,
-        p.autoRested and "1" or "0",
-        FormatRate(p.restedRate),
-        FormatRate(p.normalRate),
-        FormatRate(p.dungeonRate),
-        FormatRate(p.bgRate),
-        FormatRate(p.cityRate),
-        p.jjEnabled and "1" or "0",
-        p.dungeonEnabled and "1" or "0",
-        p.bgEnabled and "1" or "0",
-        p.cityEnabled and "1" or "0",
-    }
-    return table.concat(parts, ":") .. "]"
-end
-
-local function ImportProfileString(str)
-    str = strtrim(str)
-    if not string.find(str, "^%[XPRC:v1:") or not string.find(str, "%]$") then
-        ShowToast("Invalid profile string \226\156\151", true)
-        return
-    end
-    
-    local payload = string.sub(str, 2, -2)
-    local parts = {}
-    for part in string.gmatch(payload, "[^:]+") do
-        tinsert(parts, part)
-    end
-    
-    if #parts < 13 then
-        ShowToast("Invalid profile string \226\156\151", true)
-        return
-    end
-    
-    local name = parts[3]
-    local uniqueName = name
-    local counter = 1
-    while XPRateControlDB.profiles[uniqueName] do
-        uniqueName = name .. " (" .. counter .. ")"
-        counter = counter + 1
-    end
-    
-    XPRateControlDB.profiles[uniqueName] = {
-        autoRested = (parts[4] == "1"),
-        restedRate = ClampRate(tonumber(parts[5]) or 2.0),
-        normalRate = ClampRate(tonumber(parts[6]) or 1.0),
-        dungeonRate = ClampRate(tonumber(parts[7]) or 1.5),
-        bgRate = ClampRate(tonumber(parts[8]) or 1.0),
-        cityRate = ClampRate(tonumber(parts[9]) or 0.5),
-        jjEnabled = (parts[10] == "1"),
-        dungeonEnabled = (parts[11] == "1"),
-        bgEnabled = (parts[12] == "1"),
-        cityEnabled = (parts[13] == "1"),
-    }
-    
-    LoadProfile(uniqueName)
-    ShowToast("Imported: " .. uniqueName, false)
-end
-
-------------------------------------------------------------
--- Static Popup Dialog Registration
-------------------------------------------------------------
-StaticPopupDialogs["XPRATE_CREATE_PROFILE"] = {
-    text = "Enter name for new profile:",
-    button1 = "Create",
-    button2 = "Cancel",
-    hasEditBox = true,
-    OnAccept = function(self)
-        local name = self.editBox:GetText()
-        name = strtrim(name)
-        name = string.gsub(name, ":", "-")
-        if name ~= "" and not XPRateControlDB.profiles[name] then
-            local active = GetActiveProfile()
-            XPRateControlDB.profiles[name] = {
-                autoRested = active.autoRested,
-                restedRate = active.restedRate,
-                normalRate = active.normalRate,
-                jjEnabled = active.jjEnabled,
-                dungeonRate = active.dungeonRate,
-                dungeonEnabled = active.dungeonEnabled,
-                bgRate = active.bgRate,
-                bgEnabled = active.bgEnabled,
-                cityRate = active.cityRate,
-                cityEnabled = active.cityEnabled,
-            }
-            LoadProfile(name)
-            ShowToast("Profile created: " .. name, false)
-        end
-    end,
-    EditBoxOnEnterPressed = function(self)
-        local parent = self:GetParent()
-        StaticPopupDialogs["XPRATE_CREATE_PROFILE"].OnAccept(parent)
-        parent:Hide()
-    end,
-    EditBoxOnEscapePressed = function(self)
-        self:GetParent():Hide()
-    end,
-    timeout = 0,
-    whileDead = true,
-    hideOnEscape = true,
-}
-
-StaticPopupDialogs["XPRATE_DELETE_PROFILE"] = {
-    text = "Are you sure you want to delete profile %s?",
-    button1 = "Yes",
-    button2 = "No",
-    OnAccept = function(self)
-        local name = XPRateControlDB.currentProfile
-        if name ~= "Default" then
-            XPRateControlDB.profiles[name] = nil
-            LoadProfile("Default")
-            ShowToast("Profile deleted: " .. name, false)
-        end
-    end,
-    timeout = 0,
-    whileDead = true,
-    hideOnEscape = true,
-}
-
-StaticPopupDialogs["XPRATE_EXPORT_PROFILE"] = {
-    text = "Copy Profile String (Ctrl+C):",
-    button1 = "Close",
-    hasEditBox = true,
-    OnShow = function(self)
-        local exp = ExportProfileString()
-        self.editBox:SetText(exp)
-        self.editBox:SetFocus()
-        self.editBox:HighlightText()
-    end,
-    EditBoxOnEscapePressed = function(self)
-        self:GetParent():Hide()
-    end,
-    timeout = 0,
-    whileDead = true,
-    hideOnEscape = true,
-}
-
-StaticPopupDialogs["XPRATE_IMPORT_PROFILE"] = {
-    text = "Paste Profile String (Ctrl+V):",
-    button1 = "Import",
-    button2 = "Cancel",
-    hasEditBox = true,
-    OnAccept = function(self)
-        local text = self.editBox:GetText()
-        ImportProfileString(text)
-    end,
-    EditBoxOnEnterPressed = function(self)
-        local parent = self:GetParent()
-        local text = self:GetText()
-        ImportProfileString(text)
-        parent:Hide()
-    end,
-    EditBoxOnEscapePressed = function(self)
-        self:GetParent():Hide()
-    end,
-    timeout = 0,
-    whileDead = true,
-    hideOnEscape = true,
-}
-
-------------------------------------------------------------
 -- Tab 2: Automation (Auto Rested) UI Creation
 ------------------------------------------------------------
--- Profile Row Controls
-local profileBtn = MakeButton(AutomationTabFrame, 130, 18, CLR.btnBg, CLR.btnEdge)
-profileBtn:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 12, -6)
-profileBtn:SetFrameLevel(AutomationTabFrame:GetFrameLevel() + 2)
+CreateSectionHeader(AutomationTabFrame, "AUTO RESTED XP", "Interface\\Icons\\Spell_Holy_Restoration", CLR.green)
 
-local profileBtnText = profileBtn:CreateFontString("XPRateProfileButtonWidget", "OVERLAY", "GameFontHighlightSmall")
-profileBtnText:SetPoint("CENTER")
-profileBtnText:SetText("Profile: Default")
-
-local dropdownFrame = CreateFrame("Frame", "XPRateControlDropdown", UIParent, "UIDropDownMenuTemplate")
-
-profileBtn:SetScript("OnClick", function(self)
-    local menu = {}
-    tinsert(menu, { text = "Select Profile", isTitle = true, notCheckable = true })
-    
-    for pName, _ in pairs(XPRateControlDB.profiles) do
-        tinsert(menu, {
-            text = pName,
-            checked = (XPRateControlDB.currentProfile == pName),
-            func = function()
-                LoadProfile(pName)
-                ShowToast("Profile loaded: " .. pName, false)
-            end
-        })
-    end
-    
-    tinsert(menu, { text = "", disabled = true, notCheckable = true })
-    tinsert(menu, {
-        text = "New Profile...",
-        notCheckable = true,
-        func = function()
-            StaticPopup_Show("XPRATE_CREATE_PROFILE")
-        end
-    })
-    tinsert(menu, {
-        text = "Delete Profile...",
-        notCheckable = true,
-        disabled = (XPRateControlDB.currentProfile == "Default"),
-        func = function()
-            StaticPopup_Show("XPRATE_DELETE_PROFILE", XPRateControlDB.currentProfile)
-        end
-    })
-    
-    EasyMenu(menu, dropdownFrame, "cursor", 0, 0, "MENU")
-end)
-
-local exportBtn = MakeButton(AutomationTabFrame, 62, 18, CLR.btnBg, CLR.btnEdge)
-exportBtn:SetPoint("LEFT", profileBtn, "RIGHT", 10, 0)
-local exportText = exportBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-exportText:SetPoint("CENTER")
-exportText:SetText("Export")
-
-exportBtn:SetScript("OnClick", function()
-    StaticPopup_Show("XPRATE_EXPORT_PROFILE")
-end)
-
-local importBtn = MakeButton(AutomationTabFrame, 62, 18, CLR.btnBg, CLR.btnEdge)
-importBtn:SetPoint("LEFT", exportBtn, "RIGHT", 10, 0)
-local importText = importBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-importText:SetPoint("CENTER")
-importText:SetText("Import")
-
-importBtn:SetScript("OnClick", function()
-    StaticPopup_Show("XPRATE_IMPORT_PROFILE")
-end)
-
--- Rested Controls
 local restedCheckbox = CreateFrame("CheckButton", "XPRateRestedCheckbox", AutomationTabFrame, "UICheckButtonTemplate")
-restedCheckbox:SetSize(18, 18)
+restedCheckbox:SetSize(22, 22)
 restedCheckbox:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 12, -30)
 
-local restedCheckLabel = AutomationTabFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-restedCheckLabel:SetPoint("LEFT", restedCheckbox, "RIGHT", 4, 0)
-restedCheckLabel:SetText("Auto Rested")
+local restedCheckLabel = AutomationTabFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+restedCheckLabel:SetPoint("LEFT", restedCheckbox, "RIGHT", 6, 0)
+restedCheckLabel:SetText("Auto-switch rates")
 restedCheckLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
 
 local automationStatusText = AutomationTabFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-automationStatusText:SetPoint("LEFT", restedCheckLabel, "RIGHT", 16, 0)
+automationStatusText:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 12, -56)
 automationStatusText:SetText("Status: Inactive")
 
-function UpdateAutomationStatus()
+local function UpdateAutomationStatus()
     local db = XPRateControlDB
     if not db then return end
     
-    local activeReason = "Default (Normal)"
-    local isRested = (GetXPExhaustion() and GetXPExhaustion() > 0) or false
-    
-    if db.autoRested and isRested then
-        activeReason = "Rested XP"
-    else
-        local isInstance, instanceType = IsInInstance()
-        if isInstance then
-            if (instanceType == "party" or instanceType == "raid") and db.dungeonEnabled then
-                activeReason = "Dungeon"
-            elseif (instanceType == "pvp" or instanceType == "arena") and db.bgEnabled then
-                activeReason = "Battleground"
-            end
-        elseif IsResting() and db.cityEnabled then
-            activeReason = "Rest Area"
-        end
+    if not db.autoRested then
+        automationStatusText:SetText("Status: |cffcc3535Inactive|r")
+        return
     end
     
-    local currentRate = db.lastRate or DEFAULT_RATE
-    local rc = RateColor(currentRate)
-    local colorHex = string.format("%02x%02x%02x", rc[1]*255, rc[2]*255, rc[3]*255)
-    automationStatusText:SetText(string.format("Status: |cffffffffActive|r (%s) \226\145\146 |cff%s%sx|r", activeReason, colorHex, FormatRate(currentRate)))
+    local isRested = (GetXPExhaustion() and GetXPExhaustion() > 0) or false
+    local currentRate = isRested and db.restedRate or db.normalRate
+    local stateStr = isRested and "|cff20cc50Rested|r" or "|cffffffffNormal|r"
+    automationStatusText:SetText(string.format("Status: Active (%s) \226\134\146 %sx", stateStr, FormatRate(currentRate)))
 end
 
-function EvaluateRules()
+-- Rested XP switching logic
+local lastRestedState = nil
+
+local function CheckRestedXP(silent)
     local db = XPRateControlDB
-    if not db then return end
-    
-    local targetRate = nil
-    local reason = nil
-    
-    -- Rule 1: Rested XP (if checked and player has rested XP)
-    if db.autoRested then
-        local isRested = (GetXPExhaustion() and GetXPExhaustion() > 0) or false
-        if isRested then
-            targetRate = db.restedRate
-            reason = "Rested XP active"
-        end
-    end
-    
-    -- Rule 2: Zone / Instance / PvP Context rules
-    if not targetRate then
-        local isInstance, instanceType = IsInInstance()
-        if isInstance then
-            if (instanceType == "party" or instanceType == "raid") and db.dungeonEnabled then
-                targetRate = db.dungeonRate
-                reason = "Inside Dungeon/Raid"
-            elseif (instanceType == "pvp" or instanceType == "arena") and db.bgEnabled then
-                targetRate = db.bgRate
-                reason = "Inside Battleground/Arena"
-            end
-        end
-    end
-    
-    if not targetRate and db.cityEnabled then
-        if IsResting() then
-            targetRate = db.cityRate
-            reason = "Inside Resting area"
-        end
-    end
-    
-    -- Rule 3: Default Rate
-    if not targetRate then
-        targetRate = db.normalRate
-        reason = "Default (Normal)"
-    end
-    
-    -- Queue or apply
-    if not db.lastRate or math.abs(db.lastRate - targetRate) > 0.005 then
-        local inCombat = UnitAffectingCombat("player")
-        if inCombat then
-            queuedRate = targetRate
-            ShowToast(string.format("Pending: %sx (Combat) \226\143\179", FormatRate(targetRate)), false)
-        else
-            ApplyRate(targetRate, false)
+    if not db or not db.autoRested then return end
+
+    local isRested = (GetXPExhaustion() and GetXPExhaustion() > 0) or false
+    if lastRestedState == nil or isRested ~= lastRestedState then
+        lastRestedState = isRested
+        local targetRate = isRested and db.restedRate or db.normalRate
+        
+        ApplyRate(targetRate, silent)
+        if not silent then
             FlashMinimapButton(targetRate)
-            PrintMessage(string.format("Context switch (%s). XP rate set to %sx", reason, FormatRate(targetRate)))
+            local stateStr = isRested and "|cff00ccffRested|r" or "|cffffffffNormal|r"
+            PrintMessage("Rested state changed to " .. stateStr .. ". Auto-switched XP rate to " .. FormatRate(targetRate) .. "x")
         end
     end
-    
     UpdateAutomationStatus()
 end
 
 restedCheckbox:SetScript("OnClick", function(self)
-    local enabled = (self:GetChecked() == 1)
+    local enabled = self:GetChecked() and true or false
     XPRateControlDB.autoRested = enabled
-    SaveActiveProfileSettings()
-    EvaluateRules()
-    ShowToast(enabled and "Auto Rested Enabled \226\156\147" or "Auto Rested Disabled \226\156\147", false)
+    PrintMessage("Auto Rested XP switching " .. (enabled and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
+    
+    if enabled then
+        lastRestedState = nil
+        CheckRestedXP(false)
+    else
+        UpdateAutomationStatus()
+    end
+    ShowToast(enabled and "Auto Rested Enabled [OK]" or "Auto Rested Disabled [OK]", false)
 end)
 
 restedCheckbox:SetScript("OnEnter", function(self)
@@ -1281,7 +910,14 @@ local function CreateRestedPresetRow(parent, labelText, yOfs, onClickCallback, g
     end)
     
     edit:SetScript("OnEnterPressed", function(self)
-        self:ClearFocus()
+        local val = tonumber(self:GetText())
+        if val and val >= RATE_MIN and val <= RATE_MAX then
+            onClickCallback(val)
+            self:ClearFocus()
+        else
+            self:SetText(FormatRate(getValCallback()))
+            self:ClearFocus()
+        end
     end)
     
     edit:SetScript("OnEditFocusLost", function(self)
@@ -1291,12 +927,7 @@ local function CreateRestedPresetRow(parent, labelText, yOfs, onClickCallback, g
             UpdateRowUI()
             return
         end
-        local val = tonumber(self:GetText())
-        if val then
-            onClickCallback(val)
-        else
-            UpdateRowUI()
-        end
+        UpdateRowUI()
     end)
     
     edit:SetScript("OnEnter", function(self)
@@ -1307,166 +938,35 @@ local function CreateRestedPresetRow(parent, labelText, yOfs, onClickCallback, g
     return UpdateRowUI
 end
 
-updateRestedRow = CreateRestedPresetRow(AutomationTabFrame, "🛏 When Rested", -52, 
+local updateRestedRow = CreateRestedPresetRow(AutomationTabFrame, "Rested", -78, 
     function(val)
         XPRateControlDB.restedRate = ClampRate(val)
-        SaveActiveProfileSettings()
-        ShowToast("Rested Rate updated \226\156\147", false)
+        ShowToast("Rested Rate updated [OK]", false)
         lastRestedState = nil
-        EvaluateRules()
+        CheckRestedXP(false)
     end,
     function()
         return XPRateControlDB and XPRateControlDB.restedRate or 2.0
     end
 )
 
-updateNormalRow = CreateRestedPresetRow(AutomationTabFrame, "⚔ When Normal", -90, 
+local updateNormalRow = CreateRestedPresetRow(AutomationTabFrame, "Normal", -134, 
     function(val)
         XPRateControlDB.normalRate = ClampRate(val)
-        SaveActiveProfileSettings()
-        ShowToast("Normal Rate updated \226\156\147", false)
+        ShowToast("Normal Rate updated [OK]", false)
         lastRestedState = nil
-        EvaluateRules()
+        CheckRestedXP(false)
     end,
     function()
         return XPRateControlDB and XPRateControlDB.normalRate or 1.0
     end
 )
 
--- Context Rules Builder
-local contextSectionLine = AutomationTabFrame:CreateTexture(nil, "ARTWORK")
-contextSectionLine:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 10, -128)
-contextSectionLine:SetPoint("TOPRIGHT", AutomationTabFrame, "TOPRIGHT", -10, -128)
-contextSectionLine:SetHeight(1)
-contextSectionLine:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
-contextSectionLine:SetVertexColor(CLR.panelEdge[1], CLR.panelEdge[2], CLR.panelEdge[3], 0.4)
-
-local contextHeader = AutomationTabFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-contextHeader:SetPoint("TOPLEFT", contextSectionLine, "BOTTOMLEFT", 2, -4)
-contextHeader:SetText("CONTEXT AUTO-RATES")
-contextHeader:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
-
-local function CreateContextRow(parent, labelText, xOfs, getVal, setVal, getEnabled, setEnabled)
-    local cb = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
-    cb:SetSize(18, 18)
-    cb:SetPoint("TOPLEFT", parent, "TOPLEFT", xOfs, -150)
-    
-    local label = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    label:SetPoint("LEFT", cb, "RIGHT", 4, 0)
-    label:SetText(labelText)
-    label:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
-    
-    local edit = CreateFrame("EditBox", nil, parent)
-    edit:SetSize(32, 16)
-    edit:SetPoint("LEFT", label, "RIGHT", 4, 0)
-    edit:SetAutoFocus(false)
-    edit:SetFontObject("GameFontHighlightSmall")
-    edit:SetJustifyH("CENTER")
-    edit:SetMaxLetters(4)
-    edit:SetBackdrop({
-        bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true, tileSize = 6, edgeSize = 6,
-        insets = { left = 1, right = 1, top = 1, bottom = 1 }
-    })
-    edit:SetBackdropColor(0.02, 0.03, 0.06, 0.85)
-    edit:SetBackdropBorderColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.6)
-    
-    local function UpdateUI()
-        cb:SetChecked(getEnabled())
-        if not edit:HasFocus() then
-            edit:SetText(FormatRate(getVal()))
-        end
-    end
-    
-    cb:SetScript("OnClick", function(self)
-        setEnabled(self:GetChecked() == 1)
-        SaveActiveProfileSettings()
-        EvaluateRules()
-        ShowToast("Rules updated \226\156\147", false)
-    end)
-    
-    edit:SetScript("OnEditFocusGained", function(self)
-        self:SetBackdropBorderColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3], 0.9)
-    end)
-    
-    edit:SetScript("OnEscapePressed", function(self)
-        self.reverting = true
-        self:SetText(FormatRate(getVal()))
-        self:ClearFocus()
-    end)
-    
-    edit:SetScript("OnEnterPressed", function(self)
-        self:ClearFocus()
-    end)
-    
-    edit:SetScript("OnEditFocusLost", function(self)
-        self:SetBackdropBorderColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.6)
-        if self.reverting then
-            self.reverting = nil
-            UpdateUI()
-            return
-        end
-        local val = tonumber(self:GetText())
-        if val then
-            setVal(ClampRate(val))
-            SaveActiveProfileSettings()
-            EvaluateRules()
-            ShowToast("Rules updated \226\156\147", false)
-        else
-            UpdateUI()
-        end
-    end)
-    
-    edit:SetScript("OnEnter", function(self)
-        ShowTooltip(self, "Type a custom rate and press Enter")
-    end)
-    edit:SetScript("OnLeave", HideTooltip)
-    
-    return UpdateUI
-end
-
-updateDungeonRow = CreateContextRow(AutomationTabFrame, "🏰 DG:", 10,
-    function() return XPRateControlDB and XPRateControlDB.dungeonRate or 1.5 end,
-    function(val) XPRateControlDB.dungeonRate = val end,
-    function() return XPRateControlDB and XPRateControlDB.dungeonEnabled or false end,
-    function(val) XPRateControlDB.dungeonEnabled = val end
-)
-
-updateBgRow = CreateContextRow(AutomationTabFrame, "⚔ PvP:", 112,
-    function() return XPRateControlDB and XPRateControlDB.bgRate or 1.0 end,
-    function(val) XPRateControlDB.bgRate = val end,
-    function() return XPRateControlDB and XPRateControlDB.bgEnabled or false end,
-    function(val) XPRateControlDB.bgEnabled = val end
-)
-
-updateCityRow = CreateContextRow(AutomationTabFrame, "💤 Inn:", 214,
-    function() return XPRateControlDB and XPRateControlDB.cityRate or 0.5 end,
-    function(val) XPRateControlDB.cityRate = val end,
-    function() return XPRateControlDB and XPRateControlDB.cityEnabled or false end,
-    function(val) XPRateControlDB.cityEnabled = val end
-)
-
--- Rules Backend Frame
 local restedBackendFrame = CreateFrame("Frame")
 restedBackendFrame:RegisterEvent("UPDATE_EXHAUSTION")
 restedBackendFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-restedBackendFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-restedBackendFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 restedBackendFrame:SetScript("OnEvent", function(self, event)
-    if event == "PLAYER_REGEN_ENABLED" then
-        if queuedRate then
-            local r = queuedRate
-            queuedRate = nil
-            ApplyRate(r, false)
-        else
-            EvaluateRules()
-        end
-    elseif event == "PLAYER_ENTERING_WORLD" then
-        EvaluateRules()
-    else
-        EvaluateRules()
-    end
+    CheckRestedXP(event == "PLAYER_ENTERING_WORLD")
 end)
 
 ------------------------------------------------------------
@@ -1510,7 +1010,7 @@ jjCheckLabel:SetPoint("LEFT", jjCheckbox, "RIGHT", 6, 0)
 jjCheckLabel:SetText("Enable Joyous Journeys Buff")
 jjCheckLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
 
-function UpdateJJUI(enabled)
+local function UpdateJJUI(enabled)
     jjCheckbox:SetChecked(enabled)
     if enabled then
         jjIcon:SetDesaturated(false)
@@ -1528,12 +1028,11 @@ function UpdateJJUI(enabled)
 end
 
 jjCheckbox:SetScript("OnClick", function(self)
-    local enabled = (self:GetChecked() == 1)
+    local enabled = self:GetChecked() and true or false
     SendJJCommand(enabled)
     XPRateControlDB.jjEnabled = enabled
-    SaveActiveProfileSettings()
     UpdateJJUI(enabled)
-    ShowToast(enabled and "JJ Enabled \226\156\147" or "JJ Disabled \226\156\147", false)
+    ShowToast(enabled and "JJ Enabled [OK]" or "JJ Disabled [OK]", false)
     PrintMessage("Joyous Journeys " .. (enabled and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
 end)
 
@@ -1548,7 +1047,7 @@ jjCheckbox:SetScript("OnLeave", HideTooltip)
 local tabButtons = {}
 local tabNames = { "Rates", "Automation", "Buffs" }
 local tabIcons = {
-    "Interface\\Icons\\INV_Misc_Experience_01",
+    "Interface\\Icons\\spell_holy_borrowedtime",
     "Interface\\Icons\\Spell_Holy_Restoration",
     "Interface\\Icons\\Achievement_Quests_Completed_07"
 }
@@ -1570,18 +1069,14 @@ local function SetActiveTab(index)
         end
     end
     
+    -- Hide toast whenever we switch tabs to keep view clear
     toast:Hide()
     
+    -- Make sure row presets reflect latest db settings
     if index == 2 then
         updateRestedRow()
         updateNormalRow()
-        updateDungeonRow()
-        updateBgRow()
-        updateCityRow()
         UpdateAutomationStatus()
-        if XPRateProfileButtonWidget then
-            XPRateProfileButtonWidget:SetText("Profile: " .. XPRateControlDB.currentProfile)
-        end
     end
 end
 
@@ -1640,43 +1135,41 @@ footerLine2:SetVertexColor(0, 0, 0, 0.8)
 
 local footer = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 footer:SetPoint("BOTTOM", frame, "BOTTOM", 0, 8)
-footer:SetText("Drag title bar to move \226\148\140 ESC to close")
+footer:SetText("Drag title bar to move | ESC to close")
 footer:SetTextColor(CLR.muted[1], CLR.muted[2], CLR.muted[3])
 
 ------------------------------------------------------------
 -- Minimap Button
 ------------------------------------------------------------
+-- Minimap Button
+------------------------------------------------------------
 local minimapButton = CreateFrame("Button", "XPRateMinimapButton", Minimap)
 minimapButton:SetSize(31, 31)
-minimapButton:SetFrameStrata("HIGH")
-minimapButton:SetFrameLevel(20)
+minimapButton:SetFrameStrata("MEDIUM")
+minimapButton:SetFrameLevel(8)
+minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
 
 local background = minimapButton:CreateTexture("XPRateMinimapButtonBackground", "BACKGROUND")
-background:SetSize(21, 21)
-background:SetPoint("CENTER", minimapButton, "CENTER", 0, 0)
-background:SetTexture("Interface/Minimap/UI-Minimap-Background")
+background:SetSize(20, 20)
+background:SetPoint("TOPLEFT", minimapButton, "TOPLEFT", 7, -5)
+background:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
 
-minimapButton.icon = minimapButton:CreateTexture("XPRateMinimapButtonIcon", "BORDER")
+minimapButton.icon = minimapButton:CreateTexture("XPRateMinimapButtonIcon", "BACKGROUND")
 minimapButton.icon:SetSize(20, 20)
-minimapButton.icon:SetPoint("CENTER", minimapButton, "CENTER", 0, 0)
-minimapButton.icon:SetTexture("Interface/Icons/inv_misc_hourglass_01")
-minimapButton.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+minimapButton.icon:SetPoint("TOPLEFT", minimapButton, "TOPLEFT", 7, -5)
+minimapButton.icon:SetTexture("Interface\\Icons\\spell_holy_borrowedtime")
+minimapButton.icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
 
-local border = minimapButton:CreateTexture("XPRateMinimapButtonBorder", "ARTWORK")
+local border = minimapButton:CreateTexture("XPRateMinimapButtonBorder", "OVERLAY")
 border:SetSize(53, 53)
-border:SetPoint("CENTER", minimapButton, "CENTER", 0, 0)
-border:SetTexture("Interface/Minimap/MiniMap-TrackingBorder")
-
-local highlight = minimapButton:CreateTexture("XPRateMinimapButtonHighlight", "HIGHLIGHT")
-highlight:SetSize(31, 31)
-highlight:SetPoint("CENTER", minimapButton, "CENTER", 0, 0)
-highlight:SetTexture("Interface/Minimap/UI-Minimap-ZoomButton-Highlight")
+border:SetPoint("TOPLEFT", minimapButton, "TOPLEFT", 0, 0)
+border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
 
 -- Glow ring (animated pulse for "active" feel)
 local glowTex = minimapButton:CreateTexture(nil, "OVERLAY")
-glowTex:SetSize(42, 42)
-glowTex:SetPoint("CENTER", minimapButton, "CENTER", 0, 0)
-glowTex:SetTexture("Interface/Minimap/MiniMap-TrackingBorder")
+glowTex:SetSize(53, 53)
+glowTex:SetPoint("TOPLEFT", minimapButton, "TOPLEFT", 0, 0)
+glowTex:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
 glowTex:SetAlpha(0)
 
 local glowElapsed = 0
@@ -1687,42 +1180,86 @@ glowUpdater:SetScript("OnUpdate", function(self, elapsed)
     glowTex:SetAlpha(alpha)
 end)
 
+local minimapShapes = {
+    ["ROUND"]               = {true, true, true, true},
+    ["SQUARE"]              = {false, false, false, false},
+    ["CORNER-TOPLEFT"]      = {true, false, false, false},
+    ["CORNER-TOPRIGHT"]     = {false, false, true, false},
+    ["CORNER-BOTTOMLEFT"]   = {false, true, false, false},
+    ["CORNER-BOTTOMRIGHT"]  = {false, false, false, true},
+    ["SIDE-LEFT"]           = {true, true, false, false},
+    ["SIDE-RIGHT"]          = {false, false, true, true},
+    ["SIDE-TOP"]            = {true, false, true, false},
+    ["SIDE-BOTTOM"]         = {false, true, false, true},
+    ["TRICORNER-TOPLEFT"]   = {true, true, true, false},
+    ["TRICORNER-TOPRIGHT"]  = {true, false, true, true},
+    ["TRICORNER-BOTTOMLEFT"] = {true, true, false, true},
+    ["TRICORNER-BOTTOMRIGHT"] = {false, true, true, true},
+}
+
 local function UpdateMinimapButtonPosition()
-    local angle = XPRateControlDB and XPRateControlDB.minimapPos or DEFAULT_MINIMAP_ANGLE
-    local x = MINIMAP_RADIUS * math.cos(math.rad(angle))
-    local y = MINIMAP_RADIUS * math.sin(math.rad(angle))
+    local deg = XPRateControlDB and XPRateControlDB.minimapPos or DEFAULT_MINIMAP_ANGLE
+    local angle = math.rad(deg)
+    local x, y, q = math.cos(angle), math.sin(angle), 1
+    if x < 0 then q = q + 1 end
+    if y > 0 then q = q + 2 end
+
+    local minimapShape = GetMinimapShape and GetMinimapShape() or "ROUND"
+    local quadTable = minimapShapes[minimapShape] or minimapShapes["ROUND"]
+    if quadTable[q] then
+        x, y = x * 80, y * 80
+    else
+        local diagRadius = 103.13708498985
+        x = math.max(-80, math.min(x * diagRadius, 80))
+        y = math.max(-80, math.min(y * diagRadius, 80))
+    end
+
     minimapButton:ClearAllPoints()
     minimapButton:SetPoint("CENTER", Minimap, "CENTER", x, y)
-    minimapButton:SetFrameStrata("HIGH")
-    minimapButton:SetFrameLevel(20)
+end
+
+local function OnMinimapButtonDragUpdate(self)
+    local mx, my = Minimap:GetCenter()
+    local px, py = GetCursorPosition()
+    local scale = Minimap:GetEffectiveScale()
+    if mx and my and scale and scale > 0 then
+        px, py = px / scale, py / scale
+        local angle = math.deg(math.atan2(py - my, px - mx)) % 360
+        if XPRateControlDB then
+            XPRateControlDB.minimapPos = angle
+        end
+        UpdateMinimapButtonPosition()
+    end
 end
 
 minimapButton:RegisterForDrag("LeftButton")
-minimapButton.dragging = false
+
+minimapButton:SetScript("OnMouseDown", function(self)
+    self.icon:SetTexCoord(0, 1, 0, 1)
+end)
+
+minimapButton:SetScript("OnMouseUp", function(self)
+    self.icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
+end)
 
 minimapButton:SetScript("OnDragStart", function(self)
-    self.dragging = true
-    self:SetScript("OnUpdate", function(self)
-        local cx, cy = GetCursorPosition()
-        local mx, my = Minimap:GetCenter()
-        local scale = Minimap:GetEffectiveScale()
-        if mx and my and scale then
-            local x = cx - (mx * scale)
-            local y = cy - (my * scale)
-            local angle = math.deg(math.atan2(y, x))
-            if angle < 0 then angle = angle + 360 end
-            XPRateControlDB.minimapPos = angle
-            UpdateMinimapButtonPosition()
-        end
-    end)
+    self:LockHighlight()
+    self.icon:SetTexCoord(0, 1, 0, 1)
+    self:SetScript("OnUpdate", OnMinimapButtonDragUpdate)
+    self.isMoving = true
+    HideTooltip()
 end)
 
 minimapButton:SetScript("OnDragStop", function(self)
-    self.dragging = false
     self:SetScript("OnUpdate", nil)
+    self.icon:SetTexCoord(0.05, 0.95, 0.05, 0.95)
+    self:UnlockHighlight()
+    self.isMoving = nil
 end)
 
 minimapButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+
+local dropdownFrame = CreateFrame("Frame", "XPRateMinimapDropdown", UIParent, "UIDropDownMenuTemplate")
 
 local dropdownMenu = {
     { text = "XP Rate Control", isTitle = true, notCheckable = true },
@@ -1736,7 +1273,7 @@ local dropdownMenu = {
 }
 
 minimapButton:SetScript("OnClick", function(self, button)
-    if self.dragging then return end
+    if self.isMoving then return end
     if button == "LeftButton" then
         if frame:IsShown() then
             frame:Hide()
@@ -1749,6 +1286,7 @@ minimapButton:SetScript("OnClick", function(self, button)
 end)
 
 minimapButton:SetScript("OnEnter", function(self)
+    if self.isMoving then return end
     local rateStr = FormatRate(XPRateControlDB and XPRateControlDB.lastRate or DEFAULT_RATE)
     ShowTooltip(self,
         "|cff00ccffXP Rate Control|r\n" ..
@@ -1761,169 +1299,76 @@ end)
 minimapButton:SetScript("OnLeave", HideTooltip)
 
 ------------------------------------------------------------
--- Confirmation Listener Frame & Timeout
-------------------------------------------------------------
-local confirmationFrame = CreateFrame("Frame")
-confirmationFrame:RegisterEvent("CHAT_MSG_SYSTEM")
-confirmationFrame:SetScript("OnEvent", function(self, event, msg)
-    if event == "CHAT_MSG_SYSTEM" and isAwaitingConfirmation then
-        if MatchSuccessMessage(msg, pendingRate) then
-            isAwaitingConfirmation = false
-            XPRateControlDB.lastRate = pendingRate
-            
-            local rc = RateColor(pendingRate)
-            if XPRateSliderWidget then
-                UpdateUIFromValue(pendingRate)
-            end
-            if XPRateMinimapButtonIcon then
-                XPRateMinimapButtonIcon:SetVertexColor(rc[1], rc[2], rc[3])
-            end
-            
-            ShowToast(string.format("Applied %sx \226\156\147", FormatRate(pendingRate)), false)
-            PrintMessage("XP rate set to " .. FormatRate(pendingRate) .. "x (Server Confirmed)")
-            UpdateAutomationStatus()
-        elseif MatchErrorMessage(msg) then
-            isAwaitingConfirmation = false
-            local lastRate = XPRateControlDB.lastRate or DEFAULT_RATE
-            if XPRateSliderWidget then
-                UpdateUIFromValue(lastRate)
-            end
-            ShowToast("Server Rejected \226\156\151", true)
-            PrintMessage("XP rate revert. Server rejected command.")
-        end
-    end
-end)
-
-local confirmationTimeoutFrame = CreateFrame("Frame")
-local timeoutElapsed = 0
-confirmationTimeoutFrame:SetScript("OnUpdate", function(self, elapsed)
-    if isAwaitingConfirmation then
-        timeoutElapsed = timeoutElapsed + elapsed
-        if timeoutElapsed > 2.0 then
-            isAwaitingConfirmation = false
-            timeoutElapsed = 0
-            local lastRate = XPRateControlDB.lastRate or DEFAULT_RATE
-            if XPRateSliderWidget then
-                UpdateUIFromValue(lastRate)
-            end
-            ShowToast("Sync Timeout \226\156\151", true)
-            PrintMessage("XP rate revert. Server response timed out.")
-        end
-    else
-        timeoutElapsed = 0
-    end
-end)
-
-function ApplyRate(rate, silent)
-    rate = ClampRate(tonumber(rate) or DEFAULT_RATE)
-    
-    if UnitAffectingCombat("player") then
-        queuedRate = rate
-        if not silent then
-            ShowToast(string.format("Pending: %sx (Combat) \226\143\179", FormatRate(rate)), false)
-        end
-        return
-    end
-
-    SendXPCommand(rate)
-    
-    pendingRate = rate
-    pendingTime = GetTime()
-    isAwaitingConfirmation = true
-    
-    if not silent then
-        ShowToast(string.format("Sent %sx...", FormatRate(rate)), false)
-    end
-end
-
-------------------------------------------------------------
 -- Initialization
 ------------------------------------------------------------
 local initFrame = CreateFrame("Frame")
 initFrame:RegisterEvent("ADDON_LOADED")
+initFrame:RegisterEvent("PLAYER_LOGIN")
 initFrame:SetScript("OnEvent", function(self, event, loadedAddon)
-    if loadedAddon ~= ADDON_NAME then return end
+    if event == "ADDON_LOADED" then
+        if loadedAddon ~= ADDON_NAME then return end
 
-    if not XPRateControlDB then
-        XPRateControlDB = {}
+        if not XPRateControlDB then
+            XPRateControlDB = {}
+        end
+
+        local db = XPRateControlDB
+        if db.minimapPos  == nil then db.minimapPos  = DEFAULT_MINIMAP_ANGLE end
+        if db.showMinimap == nil then db.showMinimap = true end
+        if db.lastRate    == nil then db.lastRate    = DEFAULT_RATE end
+        if db.jjEnabled   == nil then db.jjEnabled   = true end
+        if db.autoRested  == nil then db.autoRested  = false end
+        if db.restedRate  == nil then db.restedRate  = 2.0 end
+        if db.normalRate  == nil then db.normalRate  = 1.0 end
+        if db.firstRun    == nil then db.firstRun    = true end
+
+        -- Position restoration
+        if db.framePos then
+            frame:ClearAllPoints()
+            frame:SetPoint(db.framePos.point, UIParent, db.framePos.relativePoint, db.framePos.xOfs, db.framePos.yOfs)
+        else
+            frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+        end
+
+        UpdateUIFromValue(db.lastRate)
+        UpdateJJUI(db.jjEnabled)
+        restedCheckbox:SetChecked(db.autoRested)
+        
+        updateRestedRow()
+        updateNormalRow()
+        UpdateAutomationStatus()
+        UpdateMinimapButtonPosition()
+
+        if db.lastRate and minimapButton.icon then
+            local rc = RateColor(db.lastRate)
+            minimapButton.icon:SetVertexColor(rc[1], rc[2], rc[3])
+        end
+
+        if db.autoRested then
+            CheckRestedXP(true)
+        end
+
+        if db.showMinimap then
+            minimapButton:Show()
+        else
+            minimapButton:Hide()
+        end
+
+        SetActiveTab(1)
+
+        -- First load banner
+        if db.firstRun then
+            PrintMessage("Welcome to XP Rate Control v1.1!")
+            PrintMessage("  - Click minimap hourglass icon to toggle settings panel.")
+            PrintMessage("  - Right-click minimap icon for quick rate adjustments.")
+            PrintMessage("  - Changes are applied instantly. Check out the new tabs!")
+            db.firstRun = false
+        else
+            PrintMessage("Loaded. Type |cff00ff00/xp|r to open, |cff00ff00/xp help|r for commands.")
+        end
+    elseif event == "PLAYER_LOGIN" then
+        UpdateMinimapButtonPosition()
     end
-
-    local db = XPRateControlDB
-    if db.minimapPos  == nil then db.minimapPos  = DEFAULT_MINIMAP_ANGLE end
-    if db.showMinimap == nil then db.showMinimap = true end
-    if db.lastRate    == nil then db.lastRate    = DEFAULT_RATE end
-    if db.firstRun    == nil then db.firstRun    = true end
-
-    -- Initialize Profile Database
-    if not db.profiles then
-        db.profiles = {
-            ["Default"] = {
-                autoRested = false,
-                restedRate = 2.0,
-                normalRate = 1.0,
-                jjEnabled = true,
-                dungeonRate = 1.5,
-                dungeonEnabled = false,
-                bgRate = 1.0,
-                bgEnabled = false,
-                cityRate = 0.5,
-                cityEnabled = false,
-            }
-        }
-    end
-    if not db.currentProfile then
-        db.currentProfile = "Default"
-    end
-
-    -- Position restoration
-    if db.framePos then
-        frame:ClearAllPoints()
-        frame:SetPoint(db.framePos.point, UIParent, db.framePos.relativePoint, db.framePos.xOfs, db.framePos.yOfs)
-    else
-        frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
-    end
-
-    -- Load active profile (syncs profile to DB variables)
-    LoadProfile(db.currentProfile)
-
-    -- Force override values to DB states
-    UpdateUIFromValue(db.lastRate)
-    UpdateJJUI(db.jjEnabled)
-    restedCheckbox:SetChecked(db.autoRested)
-    
-    updateRestedRow()
-    updateNormalRow()
-    updateDungeonRow()
-    updateBgRow()
-    updateCityRow()
-    UpdateAutomationStatus()
-    UpdateMinimapButtonPosition()
-
-    if db.lastRate and minimapButton.icon then
-        local rc = RateColor(db.lastRate)
-        minimapButton.icon:SetVertexColor(rc[1], rc[2], rc[3])
-    end
-
-    if db.showMinimap then
-        minimapButton:Show()
-    else
-        minimapButton:Hide()
-    end
-
-    SetActiveTab(1)
-
-    -- First load banner
-    if db.firstRun then
-        PrintMessage("Welcome to XP Rate Control v1.2!")
-        PrintMessage("  - Profile switcher and context rules are available on Tab 2.")
-        PrintMessage("  - Click minimap hourglass icon to toggle settings panel.")
-        PrintMessage("  - Changes are validated with the server instantly.")
-        db.firstRun = false
-    else
-        PrintMessage("Loaded. Type |cff00ff00/xp|r to open, |cff00ff00/xp help|r for commands.")
-    end
-
-    self:UnregisterEvent("ADDON_LOADED")
 end)
 
 ------------------------------------------------------------
