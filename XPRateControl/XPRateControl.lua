@@ -739,7 +739,7 @@ end
 ------------------------------------------------------------
 -- Tab 2: Automation (Auto Rested) UI Creation
 ------------------------------------------------------------
-CreateSectionHeader(AutomationTabFrame, "AUTO RESTED XP", "Interface\\Icons\\Spell_Holy_Restoration", CLR.green)
+CreateSectionHeader(AutomationTabFrame, "AUTO RESTED XP", "Interface\\AddOns\\XPRateControl\\Textures\\Icon_Automation", CLR.green)
 
 local restedCheckbox = CreateFrame("CheckButton", "XPRateRestedCheckbox", AutomationTabFrame, "UICheckButtonTemplate")
 restedCheckbox:SetSize(22, 22)
@@ -972,7 +972,7 @@ end)
 ------------------------------------------------------------
 -- Tab 3: Buffs (Joyous Journeys) UI Creation
 ------------------------------------------------------------
-CreateSectionHeader(BuffsTabFrame, "JOYOUS JOURNEYS", "Interface\\Icons\\Achievement_Quests_Completed_07", CLR.gold)
+CreateSectionHeader(BuffsTabFrame, "JOYOUS JOURNEYS", "Interface\\AddOns\\XPRateControl\\Textures\\Icon_Buffs", CLR.gold)
 
 local jjDesc = BuffsTabFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 jjDesc:SetPoint("TOPLEFT", BuffsTabFrame, "TOPLEFT", 12, -30)
@@ -995,7 +995,7 @@ jjCard:SetBackdropBorderColor(CLR.panelEdge[1], CLR.panelEdge[2], CLR.panelEdge[
 local jjIcon = jjCard:CreateTexture(nil, "ARTWORK")
 jjIcon:SetSize(36, 36)
 jjIcon:SetPoint("CENTER", jjCard, "CENTER", 0, 10)
-jjIcon:SetTexture("Interface\\Icons\\Achievement_Quests_Completed_07")
+jjIcon:SetTexture("Interface\\AddOns\\XPRateControl\\Textures\\Icon_Buffs")
 
 local jjStatusText = jjCard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 jjStatusText:SetPoint("TOP", jjIcon, "BOTTOM", 0, -6)
