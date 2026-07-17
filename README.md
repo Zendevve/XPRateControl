@@ -1,42 +1,38 @@
-# ⏳ XP Rate Control
+# XP Rate Control
 
-A clean, modern GUI addon for managing experience rate adjustments and Joyous Journeys on WotLK 3.3.5a private servers (e.g. [ChromieCraft](https://www.chromiecraft.com)).
+A clean, modern GUI addon for managing experience rate adjustments and Joyous Journeys on WotLK 3.3.5a private servers (such as ChromieCraft).
 
 ![WoW Version](https://img.shields.io/badge/WoW-3.3.5a-blue?style=flat-square)
 ![Interface](https://img.shields.io/badge/Interface-30300-blue?style=flat-square)
-![Version](https://img.shields.io/badge/Version-1.0-green?style=flat-square)
+![Version](https://img.shields.io/badge/Version-1.1-green?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
 ---
 
-## ✨ Features
+## Features
 
-- **XP Rate Slider** — Smoothly adjust your XP rate from `0x` to `2x` with a draggable slider or direct numeric input
-- **Quick Presets** — One-click buttons for common rates: `0x`, `0.5x`, `1x`, `1.5x`, `2x`
-- **Joyous Journeys Toggle** — Enable or disable the 50% XP buff with a single checkbox
-- **Minimap Button** — Draggable minimap icon with left-click (toggle panel) and right-click (quick menu)
-- **Saved Settings** — Your last rate, minimap position, and preferences persist across sessions
-- **Slash Commands** — Full command-line control via `/xp`
-- **Dark Themed UI** — Sleek dark panel with color-coded rate indicators
+- **Tabbed Interface** — Three distinct, task-focused tabs (Rates, Automation, Buffs) contained in a compact 320x300 window.
+- **Speedometer Dial & Pulse** — Visual gauge displaying your current rate, complete with a scaling text pulse on change and a category tag chip (`OFF`, `SLOW`, `BLIZZLIKE`, `FAST`, `MAX`).
+- **Custom Slider** — Features a custom vertical pill thumb, a left-to-right fill track colored dynamically by the current rate, and a floating value bubble during dragging.
+- **Apply-on-Change Semantics** — Standalone apply buttons are removed. Value modifications (via slider, checkboxes, presets, or inputs) are committed to the server instantly.
+- **In-Panel Toasts** — Provides non-intrusive, bottom-of-panel toast notifications (e.g., `Sent 1.50x ✓`) to confirm action success.
+- **Rested XP Automation** — Allows auto-switching rates when you enter or leave Rested state. Features preset rows and manual editboxes for both Rested and Normal states.
+- **Escape Key Reversion** — Pressing ESC inside any rate input field cancels the edit, reverting the text and focus without applying unintended changes.
+- **Window Position Persistence** — The panel's drag position is saved in `XPRateControlDB` and restored on login.
+- **Minimap Icon State** — Tint of the minimap button hourglass icon updates dynamically to match the active rate's color. Flashes orange when automation switches rates.
 
 ---
 
-## 📦 Installation
+## Installation
 
-1. **Download** this repository (Code → Download ZIP) or clone it:
-   ```
-   git clone https://github.com/Zendevve/XPRateControl.git
-   ```
-2. **Copy** the `XPRateControl` folder into your WoW addons directory:
+1. Copy the `XPRateControl` folder into your World of Warcraft AddOns directory:
    ```
    World of Warcraft/Interface/AddOns/XPRateControl/
    ```
-   > ⚠️ The folder name **must** be `XPRateControl` — it must match the `.toc` filename exactly.
-3. **Restart** WoW or type `/reload` if you're already in-game.
-4. Verify the addon is loaded in the character select screen under **AddOns**.
+   *Note: The folder name must be exactly `XPRateControl` to match the `.toc` file.*
+2. Restart the game or type `/reload` if you are already logged in.
 
 ### Folder Structure
-
 ```
 Interface/AddOns/XPRateControl/
 ├── XPRateControl.toc
@@ -46,104 +42,69 @@ Interface/AddOns/XPRateControl/
 
 ---
 
-## 🎮 Usage
+## Usage
 
 ### Opening the Panel
+- Click the hourglass minimap button, or
+- Type `/xp` in the chat window.
 
-- **Click** the hourglass minimap button, or
-- Type **`/xp`** in chat
+### Rates Tab
+- Drag the **custom slider** or type a value in the **numeric editbox** (0.00 – 2.00). Changes apply immediately on drag release, Enter key press, or focus lost.
+- Click any **preset button** to instantly set and apply common rates (`0x`, `0.5x`, `1x`, `1.5x`, `2x`).
 
-### Adjusting XP Rate
+### Automation Tab
+- Toggle **Auto-switch rates** to enable Rested state monitoring.
+- Set target rates for both **When Rested** and **When Normal** states using the preset buttons or the manual input fields.
 
-1. Drag the **slider** or type a value in the **input box** (0.00 – 2.00)
-2. Click **Apply Rate** to send the command to the server
-3. Or use a **preset button** to instantly set and apply a rate
+### Buffs Tab
+- Check **Enable Joyous Journeys Buff** to toggle the 50% experience gain buff. The large central card lights up when active and desaturates when inactive.
 
-### Joyous Journeys
-
-1. Check or uncheck the **Enabled** checkbox
-2. Click **Apply** to toggle the 50% XP buff on the server
-
-### Minimap Button
-
-| Action | Result |
-|---|---|
-| **Left-Click** | Toggle the settings panel |
-| **Right-Click** | Open quick rate menu |
-| **Drag** | Reposition around the minimap |
+### Minimap Button Actions
+- **Left-Click** — Toggles the settings panel.
+- **Right-Click** — Opens a quick rate menu.
+- **Drag** — Repositions the button around the minimap border.
 
 ---
 
-## 💬 Slash Commands
+## Slash Commands
 
 | Command | Description |
 |---|---|
 | `/xp` | Toggle the settings panel |
-| `/xp <0-2>` | Set XP rate directly (e.g. `/xp 1.25`) |
-| `/xp minimap` | Show/hide the minimap button |
-| `/xp help` | Display all available commands |
+| `/xp <0-2>` | Set and apply XP rate directly (e.g., `/xp 1.25`) |
+| `/xp minimap` | Toggle visibility of the minimap button |
+| `/xp help` | Display available commands |
 
 ---
 
-## 🎨 Rate Color Indicators
+## Rate Color Indicators
 
-The displayed rate value changes color based on the current setting:
+The addon uses color indicators for different rate ranges:
 
 | Rate | Color | Label |
 |---|---|---|
-| `0x` | 🔴 Red | OFF |
-| `0.01x – 0.99x` | 🟠 Orange | — |
-| `1x` | 🟡 Gold | Blizzlike |
-| `1.01x – 1.5x` | 🟢 Green | — |
-| `1.51x – 2x` | 🔵 Cyan | Maximum (at 2x) |
+| `0x` | Red | OFF |
+| `0.01x – 0.99x` | Orange | SLOW |
+| `1.00x` | Gold | BLIZZLIKE |
+| `1.01x – 1.99x` | Green | FAST |
+| `2.00x` | Cyan | MAX |
 
 ---
 
-## ⚙️ Server Commands
+## Technical Information
 
-This addon sends the following chat commands to the server:
+### Server Commands
+The addon issues standard AzerothCore chat commands:
+- **Set XP rate** — `.w r <rate>` (Sends `1e-45` for `0x` to disable experience gain).
+- **Toggle Joyous Journeys** — `.weekendxp j <on|off>`.
 
-| Action | Server Command |
-|---|---|
-| Set XP rate | `.w r <rate>` |
-| Toggle Joyous Journeys | `.weekendxp j <on\|off>` |
-
-> **Note:** These commands are specific to [ChromieCraft](https://www.chromiecraft.com) and compatible AzerothCore servers. Your server may use different commands — modify the `SendXPCommand` and `SendJJCommand` functions in `XPRateControl.lua` if needed.
-
----
-
-## 🔧 Configuration
-
-All settings are saved automatically in `XPRateControlDB` (WTF saved variables):
-
-| Setting | Default | Description |
-|---|---|---|
-| `lastRate` | `1.0` | Last applied XP rate |
-| `minimapPos` | `45` | Minimap button angle (degrees) |
-| `showMinimap` | `true` | Minimap button visibility |
-| `jjEnabled` | `true` | Joyous Journeys checkbox state |
-
----
-
-## 🖥️ Compatibility
-
-- **WoW Version:** 3.3.5a (WotLK)
-- **Interface:** 30300
-- **Tested on:** [ChromieCraft](https://www.chromiecraft.com) (AzerothCore)
-- **Dependencies:** None
-
----
-
-## 📝 License
-
-This project is open source and available under the [MIT License](LICENSE).
-
----
-
-## 👤 Author
-
-**Zendevve**
-
----
-
-*Made for the ChromieCraft community* 🎄
+### Saved Variables
+Settings persist across sessions in the `XPRateControlDB` saved variable:
+- `lastRate` — Last applied rate (default: `1.0`).
+- `minimapPos` — Angle position of the minimap button (default: `45`).
+- `showMinimap` — Visibility state of the minimap button (default: `true`).
+- `autoRested` — Enabled state of rested XP auto-switching (default: `false`).
+- `restedRate` — Rate to switch to when Rested (default: `2.0`).
+- `normalRate` — Rate to switch to when Normal (default: `1.0`).
+- `jjEnabled` — Joyous Journeys buff state (default: `true`).
+- `framePos` — Coordinates and anchors of the main panel.

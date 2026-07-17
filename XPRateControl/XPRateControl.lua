@@ -14,6 +14,8 @@ local DEFAULT_MINIMAP_ANGLE = 45
 local DEFAULT_RATE = 1.0
 local RATE_ZERO_SUB = "1e-45"
 
+local tinsert = table.insert
+
 -- Color palette (RGB 0-1)
 local CLR = {
     cyan      = { 0.0, 0.82, 1.0 },
@@ -34,9 +36,6 @@ local CLR = {
     accentBg  = { 0.06, 0.22, 0.42 },
     accentEdge= { 0.25, 0.55, 0.9 },
     accentHover={ 0.1, 0.32, 0.55 },
-    dangerBg  = { 0.35, 0.08, 0.08 },
-    dangerEdge= { 0.8, 0.25, 0.25 },
-    dangerHover={ 0.5, 0.12, 0.12 },
 }
 
 ------------------------------------------------------------
@@ -116,23 +115,35 @@ end
 -- Main UI Frame
 ------------------------------------------------------------
 local frame = CreateFrame("Frame", "XPRateControlFrame", UIParent)
-frame:SetSize(280, 460)
+frame:SetSize(320, 300)
 frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 frame:SetFrameStrata("HIGH")
 frame:SetMovable(true)
 frame:EnableMouse(true)
 frame:SetClampedToScreen(true)
 frame:RegisterForDrag("LeftButton")
+
 frame:SetScript("OnDragStart", frame.StartMoving)
-frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+frame:SetScript("OnDragStop", function(self)
+    self:StopMovingOrSizing()
+    local point, _, relativePoint, xOfs, yOfs = self:GetPoint()
+    if XPRateControlDB then
+        XPRateControlDB.framePos = {
+            point = point,
+            relativePoint = relativePoint,
+            xOfs = xOfs,
+            yOfs = yOfs
+        }
+    end
+end)
 frame:Hide()
 
 tinsert(UISpecialFrames, "XPRateControlFrame")
 
 frame:SetBackdrop({
-    bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+    bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    tile = true, tileSize = 16, edgeSize = 16,
+    tile = true, tileSize = 32, edgeSize = 16,
     insets = { left = 5, right = 5, top = 5, bottom = 5 }
 })
 frame:SetBackdropColor(CLR.panelBg[1], CLR.panelBg[2], CLR.panelBg[3], 0.97)
@@ -142,62 +153,51 @@ frame:SetBackdropBorderColor(CLR.panelEdge[1], CLR.panelEdge[2], CLR.panelEdge[3
 local headerBg = frame:CreateTexture(nil, "BACKGROUND")
 headerBg:SetPoint("TOPLEFT", frame, "TOPLEFT", 6, -6)
 headerBg:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -6, -6)
-headerBg:SetHeight(36)
+headerBg:SetHeight(32)
 headerBg:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
 headerBg:SetGradientAlpha("HORIZONTAL",
     CLR.headerBg[1], CLR.headerBg[2], CLR.headerBg[3], 0.95,
     CLR.panelBg[1], CLR.panelBg[2], CLR.panelBg[3], 0.3)
 
--- Accent line under header
-local accentLine = frame:CreateTexture(nil, "ARTWORK")
-accentLine:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -42)
-accentLine:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -42)
-accentLine:SetHeight(1)
-accentLine:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
-accentLine:SetVertexColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3], 0.35)
-
 -- Title
-local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-title:SetPoint("TOP", frame, "TOP", 0, -14)
+local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+title:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -14)
 title:SetText("XP Rate Control")
 title:SetTextColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3])
 
 -- Version
-local version = frame:CreateFontString(nil, "OVERLAY", "GameFontDisable")
-version:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -40, -16)
-version:SetText("v1.0")
+local version = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+version:SetPoint("LEFT", title, "RIGHT", 6, 0)
+version:SetText("v1.1")
 version:SetTextColor(CLR.muted[1], CLR.muted[2], CLR.muted[3])
 
 -- Close button
 local closeBtn = CreateFrame("Button", nil, frame)
-closeBtn:SetSize(22, 22)
-closeBtn:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -10, -10)
+closeBtn:SetSize(26, 26)
+closeBtn:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -8)
 
 local closeBg = closeBtn:CreateTexture(nil, "BACKGROUND")
 closeBg:SetAllPoints()
 closeBg:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
-closeBg:SetVertexColor(0.3, 0.08, 0.08, 0.6)
+closeBg:SetVertexColor(0.35, 0.08, 0.08, 0.8)
 
 local closeBorder = closeBtn:CreateTexture(nil, "OVERLAY")
-closeBorder:SetPoint("TOPLEFT", closeBtn, "TOPLEFT", 0, 0)
-closeBorder:SetPoint("TOPRIGHT", closeBtn, "TOPRIGHT", 0, 0)
-closeBorder:SetPoint("BOTTOMLEFT", closeBtn, "BOTTOMLEFT", 0, 0)
-closeBorder:SetPoint("BOTTOMRIGHT", closeBtn, "BOTTOMRIGHT", 0, 0)
+closeBorder:SetAllPoints()
 closeBorder:SetTexture("Interface\\Tooltips\\UI-Tooltip-Border")
 closeBorder:SetTexCoord(0.28, 0.72, 0.28, 0.72)
 closeBorder:SetVertexColor(0.8, 0.25, 0.25, 0.7)
 
-local closeText = closeBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-closeText:SetPoint("CENTER")
-closeText:SetText("x")
+local closeText = closeBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+closeText:SetPoint("CENTER", closeBtn, "CENTER", 0, 1)
+closeText:SetText("\226\156\149") -- ✕ glyph
 closeText:SetTextColor(0.85, 0.85, 0.85)
 
 closeBtn:SetScript("OnEnter", function()
-    closeBg:SetVertexColor(0.55, 0.1, 0.1, 0.85)
-    closeText:SetTextColor(1, 0.3, 0.3)
+    closeBg:SetVertexColor(0.7, 0.1, 0.1, 0.95)
+    closeText:SetTextColor(1, 0.4, 0.4)
 end)
 closeBtn:SetScript("OnLeave", function()
-    closeBg:SetVertexColor(0.3, 0.08, 0.08, 0.6)
+    closeBg:SetVertexColor(0.35, 0.08, 0.08, 0.8)
     closeText:SetTextColor(0.85, 0.85, 0.85)
 end)
 closeBtn:SetScript("OnClick", function()
@@ -205,68 +205,369 @@ closeBtn:SetScript("OnClick", function()
 end)
 
 ------------------------------------------------------------
--- XP Rate Section
+-- Tab Layout Containers
 ------------------------------------------------------------
-local sectionXP = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-sectionXP:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -52)
-sectionXP:SetText("XP RATE")
-sectionXP:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+local RatesTabFrame = CreateFrame("Frame", nil, frame)
+RatesTabFrame:SetSize(308, 196)
+RatesTabFrame:SetPoint("TOP", frame, "TOP", 0, -68)
 
--- Rate value display (large, centered)
-local valueText = frame:CreateFontString("XPRateValueTextWidget", "OVERLAY", "GameFontNormalHuge")
-valueText:SetPoint("TOP", frame, "TOP", 0, -72)
-valueText:SetText("1.00x")
-valueText:SetTextColor(CLR.gold[1], CLR.gold[2], CLR.gold[3])
+local AutomationTabFrame = CreateFrame("Frame", nil, frame)
+AutomationTabFrame:SetSize(308, 196)
+AutomationTabFrame:SetPoint("TOP", frame, "TOP", 0, -68)
+AutomationTabFrame:Hide()
 
--- Status label under value
-local statusText = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-statusText:SetPoint("TOP", valueText, "BOTTOM", 0, -2)
-statusText:SetText("Blizzlike")
-statusText:SetTextColor(CLR.gold[1], CLR.gold[2], CLR.gold[3], 0.7)
+local BuffsTabFrame = CreateFrame("Frame", nil, frame)
+BuffsTabFrame:SetSize(308, 196)
+BuffsTabFrame:SetPoint("TOP", frame, "TOP", 0, -68)
+BuffsTabFrame:Hide()
 
--- Slider
-local slider = CreateFrame("Slider", "XPRateSliderWidget", frame, "OptionsSliderTemplate")
-slider:SetSize(240, 18)
-slider:SetPoint("TOP", statusText, "BOTTOM", 0, -10)
+local tabFrames = { RatesTabFrame, AutomationTabFrame, BuffsTabFrame }
+local tabColors = { CLR.cyan, CLR.green, CLR.gold }
+
+------------------------------------------------------------
+-- Toast Notification System
+------------------------------------------------------------
+local toast = CreateFrame("Frame", nil, frame)
+toast:SetSize(240, 24)
+toast:SetPoint("BOTTOM", frame, "BOTTOM", 0, 36)
+toast:SetBackdrop({
+    bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 10, edgeSize = 10,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 }
+})
+toast:SetBackdropColor(0.02, 0.08, 0.05, 0.95)
+toast:SetBackdropBorderColor(0.2, 0.8, 0.4, 0.8)
+toast:SetFrameStrata("DIALOG")
+toast:Hide()
+
+local toastText = toast:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+toastText:SetPoint("CENTER")
+
+local toastTimer = 0
+local function ShowToast(text, isError)
+    toastText:SetText(text)
+    if isError then
+        toast:SetBackdropColor(0.15, 0.02, 0.02, 0.95)
+        toast:SetBackdropBorderColor(0.8, 0.2, 0.2, 0.8)
+        toastText:SetTextColor(1, 0.3, 0.3)
+    else
+        toast:SetBackdropColor(0.02, 0.08, 0.05, 0.95)
+        toast:SetBackdropBorderColor(0.2, 0.8, 0.4, 0.8)
+        toastText:SetTextColor(0.4, 1, 0.6)
+    end
+    toast:SetAlpha(1)
+    toast:Show()
+    toastTimer = 2.0
+end
+
+local toastUpdater = CreateFrame("Frame", nil, toast)
+toastUpdater:SetScript("OnUpdate", function(self, elapsed)
+    if toastTimer > 0 then
+        toastTimer = toastTimer - elapsed
+        if toastTimer <= 0 then
+            toast:Hide()
+        elseif toastTimer < 0.5 then
+            toast:SetAlpha(toastTimer / 0.5)
+        end
+    end
+end)
+
+------------------------------------------------------------
+-- Section Header Builder
+------------------------------------------------------------
+local function CreateSectionHeader(parent, name, iconPath, accentColor)
+    local stripe = parent:CreateTexture(nil, "ARTWORK")
+    stripe:SetSize(4, 18)
+    stripe:SetPoint("TOPLEFT", parent, "TOPLEFT", 10, -6)
+    stripe:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
+    stripe:SetVertexColor(accentColor[1], accentColor[2], accentColor[3])
+    
+    local icon = parent:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(14, 14)
+    icon:SetPoint("LEFT", stripe, "RIGHT", 6, 0)
+    icon:SetTexture(iconPath)
+    
+    local text = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    text:SetPoint("LEFT", icon, "RIGHT", 6, 0)
+    text:SetText(name)
+    text:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+    
+    return stripe
+end
+
+------------------------------------------------------------
+-- Preset Pulse Coordinator
+------------------------------------------------------------
+local ratesPresets = {}
+local restedPresets = {}
+local pulseElapsed = 0
+
+local presetPulseFrame = CreateFrame("Frame")
+presetPulseFrame:SetScript("OnUpdate", function(self, elapsed)
+    pulseElapsed = pulseElapsed + elapsed
+    local alpha = 0.45 + 0.35 * math.sin(pulseElapsed * 3.5)
+    
+    -- Tab 1 presets
+    if RatesTabFrame:IsShown() and XPRateSliderWidget then
+        local curRate = XPRateSliderWidget:GetValue()
+        for _, item in ipairs(ratesPresets) do
+            local isCurrent = (math.abs(curRate - item.val) < 0.005)
+            if isCurrent then
+                local rc = RateColor(item.val)
+                item.btn:SetBackdropBorderColor(rc[1], rc[2], rc[3], alpha)
+            end
+        end
+    end
+    
+    -- Tab 2 presets
+    if AutomationTabFrame:IsShown() then
+        for _, item in ipairs(restedPresets) do
+            local targetVal = item.getVal()
+            local isCurrent = (math.abs(targetVal - item.val) < 0.005)
+            if isCurrent then
+                local rc = RateColor(item.val)
+                item.btn:SetBackdropBorderColor(rc[1], rc[2], rc[3], alpha)
+            end
+        end
+    end
+end)
+
+------------------------------------------------------------
+-- Minimap Flash Coordinator
+------------------------------------------------------------
+local flashTimer = 0
+local flashCount = 0
+local flashState = false
+local originalColor = nil
+
+local minimapFlashFrame = CreateFrame("Frame")
+minimapFlashFrame:SetScript("OnUpdate", function(self, elapsed)
+    if flashTimer > 0 and XPRateMinimapButtonIcon then
+        flashTimer = flashTimer - elapsed
+        if flashTimer <= 0 then
+            if flashCount > 0 then
+                flashCount = flashCount - 1
+                flashState = not flashState
+                if flashState then
+                    XPRateMinimapButtonIcon:SetVertexColor(1, 0.5, 0) -- orange flash
+                else
+                    XPRateMinimapButtonIcon:SetVertexColor(originalColor[1], originalColor[2], originalColor[3])
+                end
+                flashTimer = 0.15
+            else
+                XPRateMinimapButtonIcon:SetVertexColor(originalColor[1], originalColor[2], originalColor[3])
+            end
+        end
+    end
+end)
+
+local function FlashMinimapButton(targetRate)
+    originalColor = RateColor(targetRate)
+    flashCount = 6
+    flashState = false
+    flashTimer = 0.01
+end
+
+------------------------------------------------------------
+-- Unified Apply Helper
+------------------------------------------------------------
+local function ApplyRate(rate, silent)
+    rate = ClampRate(tonumber(rate) or DEFAULT_RATE)
+    SendXPCommand(rate)
+    XPRateControlDB.lastRate = rate
+    
+    if XPRateSliderWidget then
+        XPRateSliderWidget:SetValue(rate)
+    end
+    
+    if XPRateMinimapButtonIcon then
+        local rc = RateColor(rate)
+        XPRateMinimapButtonIcon:SetVertexColor(rc[1], rc[2], rc[3])
+    end
+    
+    if not silent then
+        ShowToast(string.format("Sent %sx \226\156\147", FormatRate(rate)), false)
+        PrintMessage("XP rate set to " .. FormatRate(rate) .. "x")
+    end
+end
+
+------------------------------------------------------------
+-- Tab 1: Rates UI Creation
+------------------------------------------------------------
+CreateSectionHeader(RatesTabFrame, "XP RATE", "Interface\\Icons\\INV_Misc_Experience_01", CLR.cyan)
+
+-- Inset Card (Hero Element)
+local heroCard = CreateFrame("Frame", nil, RatesTabFrame)
+heroCard:SetSize(288, 86)
+heroCard:SetPoint("TOP", RatesTabFrame, "TOP", 0, -28)
+heroCard:SetBackdrop({
+    bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 10, edgeSize = 10,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 }
+})
+heroCard:SetBackdropColor(0.02, 0.03, 0.05, 0.9)
+heroCard:SetBackdropBorderColor(CLR.panelEdge[1] * 1.3, CLR.panelEdge[2] * 1.3, CLR.panelEdge[3] * 1.3, 0.8)
+
+-- Speedometer dial track
+local dialTrack = heroCard:CreateTexture(nil, "BACKGROUND")
+dialTrack:SetSize(72, 72)
+dialTrack:SetPoint("CENTER", heroCard, "CENTER", 0, 0)
+dialTrack:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+dialTrack:SetVertexColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.4)
+
+-- Speedometer Dial Dot
+local dialDot = heroCard:CreateTexture(nil, "OVERLAY")
+dialDot:SetSize(8, 8)
+dialDot:SetTexture("Interface\\SocialFrame\\ChatFrameSearchResult-Dot")
+
+local function UpdateDial(rate)
+    local percent = rate / RATE_MAX
+    local currentAngle = 225 - (percent * 270)
+    local rad = math.rad(currentAngle)
+    local radius = 32
+    local x = radius * math.cos(rad)
+    local y = radius * math.sin(rad)
+    dialDot:SetPoint("CENTER", heroCard, "CENTER", x, y)
+    local rc = RateColor(rate)
+    dialDot:SetVertexColor(rc[1], rc[2], rc[3])
+end
+
+-- Value scaling pulse container
+local pulseFrame = CreateFrame("Frame", nil, heroCard)
+pulseFrame:SetSize(100, 24)
+pulseFrame:SetPoint("CENTER", heroCard, "CENTER", 0, 3)
+
+local valueText = pulseFrame:CreateFontString("XPRateValueTextWidget", "OVERLAY", "GameFontNormalHuge")
+valueText:SetAllPoints(pulseFrame)
+valueText:SetJustifyH("CENTER")
+valueText:SetJustifyV("MIDDLE")
+
+local pulseTime = 0
+local pulseDuration = 0.18
+local function OnUpdatePulse(self, elapsed)
+    pulseTime = pulseTime + elapsed
+    if pulseTime >= pulseDuration then
+        self:SetScale(1.0)
+        self:SetScript("OnUpdate", nil)
+    else
+        local percent = pulseTime / pulseDuration
+        local scale = 1.15 - (0.15 * percent)
+        self:SetScale(scale)
+    end
+end
+
+local function TriggerPulse()
+    pulseTime = 0
+    pulseFrame:SetScript("OnUpdate", OnUpdatePulse)
+end
+
+-- Tag Chip
+local tagChip = CreateFrame("Frame", nil, heroCard)
+tagChip:SetSize(70, 14)
+tagChip:SetPoint("TOP", pulseFrame, "BOTTOM", 0, -2)
+tagChip:SetBackdrop({
+    bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 6, edgeSize = 6,
+    insets = { left = 1, right = 1, top = 1, bottom = 1 }
+})
+tagChip:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.8)
+
+local tagText = tagChip:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+tagText:SetPoint("CENTER")
+
+local function UpdateTagChip(rate)
+    local tag = "BLIZZLIKE"
+    if rate == 0 then
+        tag = "OFF"
+    elseif rate < 1 then
+        tag = "SLOW"
+    elseif rate == 1 then
+        tag = "BLIZZLIKE"
+    elseif rate < 2 then
+        tag = "FAST"
+    else
+        tag = "MAX"
+    end
+    
+    local rc = RateColor(rate)
+    tagText:SetText(tag)
+    tagText:SetTextColor(rc[1], rc[2], rc[3])
+    tagChip:SetBackdropBorderColor(rc[1], rc[2], rc[3], 0.7)
+end
+
+-- Custom Slider
+local slider = CreateFrame("Slider", "XPRateSliderWidget", RatesTabFrame)
+slider:SetSize(200, 14)
+slider:SetPoint("TOPLEFT", heroCard, "BOTTOMLEFT", 12, -18)
 slider:SetMinMaxValues(RATE_MIN, RATE_MAX)
 slider:SetValueStep(RATE_STEP)
-slider:SetValue(DEFAULT_RATE)
+slider:SetOrientation("HORIZONTAL")
 
-_G[slider:GetName() .. "Text"]:SetText("")
-_G[slider:GetName() .. "Low"]:SetText("0")
-_G[slider:GetName() .. "Low"]:SetTextColor(CLR.muted[1], CLR.muted[2], CLR.muted[3])
-_G[slider:GetName() .. "High"]:SetText("2")
-_G[slider:GetName() .. "High"]:SetTextColor(CLR.muted[1], CLR.muted[2], CLR.muted[3])
+local thumb = slider:CreateTexture(nil, "ARTWORK")
+thumb:SetSize(8, 16)
+thumb:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
+slider:SetThumbTexture(thumb)
 
--- Numeric input
-local editbox = CreateFrame("EditBox", "XPRateEditBoxWidget", frame)
-editbox:SetSize(72, 24)
-editbox:SetPoint("TOP", slider, "BOTTOM", 0, -8)
+local trackBg = slider:CreateTexture(nil, "BACKGROUND")
+trackBg:SetHeight(4)
+trackBg:SetPoint("LEFT", slider, "LEFT", 0, 0)
+trackBg:SetPoint("RIGHT", slider, "RIGHT", 0, 0)
+trackBg:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
+trackBg:SetVertexColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.3)
+
+local trackFill = slider:CreateTexture(nil, "ARTWORK")
+trackFill:SetHeight(4)
+trackFill:SetPoint("LEFT", slider, "LEFT", 0, 0)
+trackFill:SetPoint("RIGHT", thumb, "CENTER", 0, 0)
+trackFill:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
+
+local lowText = slider:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+lowText:SetPoint("TOPLEFT", slider, "BOTTOMLEFT", 0, -4)
+lowText:SetText("0x")
+
+local highText = slider:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+highText:SetPoint("TOPRIGHT", slider, "BOTTOMRIGHT", 0, -4)
+highText:SetText("2x")
+
+-- Numeric editbox (beside slider)
+local editbox = CreateFrame("EditBox", "XPRateEditBoxWidget", RatesTabFrame)
+editbox:SetSize(54, 18)
+editbox:SetPoint("LEFT", slider, "RIGHT", 12, 0)
 editbox:SetAutoFocus(false)
-editbox:SetFontObject("GameFontHighlight")
+editbox:SetFontObject("GameFontHighlightSmall")
 editbox:SetJustifyH("CENTER")
 editbox:SetMaxLetters(5)
-
 editbox:SetBackdrop({
     bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    tile = true, tileSize = 12, edgeSize = 12,
-    insets = { left = 3, right = 3, top = 3, bottom = 3 }
+    tile = true, tileSize = 8, edgeSize = 8,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 }
 })
 editbox:SetBackdropColor(0.02, 0.03, 0.06, 0.85)
 editbox:SetBackdropBorderColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.6)
 
-editbox:SetScript("OnEditFocusGained", function(self)
-    self:SetBackdropBorderColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3], 0.9)
-end)
-editbox:SetScript("OnEditFocusLost", function(self)
-    self:SetBackdropBorderColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.6)
-end)
+-- Floating value bubble
+local sliderBubble = CreateFrame("Frame", nil, slider)
+sliderBubble:SetSize(40, 18)
+sliderBubble:SetBackdrop({
+    bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 8, edgeSize = 8,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 }
+})
+sliderBubble:SetBackdropColor(CLR.panelBg[1], CLR.panelBg[2], CLR.panelBg[3], 0.95)
+sliderBubble:SetPoint("BOTTOM", thumb, "TOP", 0, 6)
+sliderBubble:Hide()
 
-------------------------------------------------------------
--- Slider <-> EditBox synchronization
-------------------------------------------------------------
+local sliderBubbleText = sliderBubble:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+sliderBubbleText:SetPoint("CENTER")
+
+-- Synchronization logic
 local isUpdating = false
+local lastUIValue = nil
 
 local function UpdateUIFromValue(value, source)
     if isUpdating then return end
@@ -275,7 +576,6 @@ local function UpdateUIFromValue(value, source)
     local valNum = ClampRate(tonumber(value) or DEFAULT_RATE)
     local formatted = FormatRate(valNum)
     local rc = RateColor(valNum)
-    local label = RateLabel(valNum)
 
     if source ~= "slider" then
         slider:SetValue(valNum)
@@ -287,8 +587,20 @@ local function UpdateUIFromValue(value, source)
     valueText:SetText(formatted .. "x")
     valueText:SetTextColor(rc[1], rc[2], rc[3])
 
-    statusText:SetText(label)
-    statusText:SetTextColor(rc[1], rc[2], rc[3], 0.7)
+    trackFill:SetVertexColor(rc[1], rc[2], rc[3], 0.9)
+    thumb:SetVertexColor(rc[1], rc[2], rc[3])
+
+    UpdateDial(valNum)
+    UpdateTagChip(valNum)
+
+    sliderBubbleText:SetText(formatted .. "x")
+    sliderBubbleText:SetTextColor(rc[1], rc[2], rc[3])
+    sliderBubble:SetBackdropBorderColor(rc[1], rc[2], rc[3], 0.8)
+
+    if source and lastUIValue and math.abs(valNum - lastUIValue) > 0.005 then
+        TriggerPulse()
+    end
+    lastUIValue = valNum
 
     isUpdating = false
 end
@@ -298,171 +610,169 @@ slider:SetScript("OnValueChanged", function(self, value)
     UpdateUIFromValue(snapped, "slider")
 end)
 
+slider:SetScript("OnMouseUp", function(self)
+    ApplyRate(self:GetValue())
+end)
+
+slider:EnableMouseWheel(true)
+slider:SetScript("OnMouseWheel", function(self, delta)
+    local val = self:GetValue()
+    local newVal = ClampRate(val + delta * RATE_STEP * 5)
+    self:SetValue(newVal)
+    ApplyRate(newVal)
+end)
+
+slider:SetScript("OnEnter", function(self)
+    sliderBubble:Show()
+    ShowTooltip(self, "Drag to set XP rate (0x \226\136\147 2x)")
+end)
+slider:SetScript("OnLeave", function(self)
+    sliderBubble:Hide()
+    HideTooltip()
+end)
+
 local function ValidateAndApplyEditBox()
     local text = editbox:GetText()
     local val = tonumber(text)
     if val then
-        UpdateUIFromValue(val, "editbox")
+        local clamped = ClampRate(val)
+        UpdateUIFromValue(clamped, "editbox")
+        ApplyRate(clamped)
     else
         UpdateUIFromValue(slider:GetValue(), nil)
     end
 end
 
-editbox:SetScript("OnEnterPressed", function(self)
-    ValidateAndApplyEditBox()
-    self:ClearFocus()
+editbox:SetScript("OnEditFocusGained", function(self)
+    self:SetBackdropBorderColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3], 0.9)
 end)
 
 editbox:SetScript("OnEscapePressed", function(self)
+    self.reverting = true
+    local lastVal = XPRateControlDB and XPRateControlDB.lastRate or DEFAULT_RATE
+    self:SetText(FormatRate(lastVal))
+    UpdateUIFromValue(lastVal, "editbox")
     self:ClearFocus()
 end)
 
-editbox:SetScript("OnEditFocusLost", function()
-    ValidateAndApplyEditBox()
+editbox:SetScript("OnEnterPressed", function(self)
+    self:ClearFocus()
 end)
 
--- Tooltips
-slider:SetScript("OnEnter", function(self)
-    ShowTooltip(self, "Drag to set XP rate (0x \226\136\147 2x)")
+editbox:SetScript("OnEditFocusLost", function(self)
+    self:SetBackdropBorderColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.6)
+    if self.reverting then
+        self.reverting = nil
+        return
+    end
+    ValidateAndApplyEditBox()
 end)
-slider:SetScript("OnLeave", HideTooltip)
 
 editbox:SetScript("OnEnter", function(self)
     ShowTooltip(self, "Type a value (0.00 \226\136\147 2.00), press Enter")
 end)
 editbox:SetScript("OnLeave", HideTooltip)
 
-------------------------------------------------------------
--- Apply Rate Button (primary CTA)
-------------------------------------------------------------
-local applyRateBtn = MakeButton(frame, 140, 28, CLR.accentBg, CLR.accentEdge)
-applyRateBtn:SetPoint("TOP", editbox, "BOTTOM", 0, -6)
-
-local applyRateText = applyRateBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-applyRateText:SetPoint("CENTER")
-applyRateText:SetText("Apply Rate")
-applyRateText:SetTextColor(0.85, 0.95, 1)
-
-applyRateBtn:SetScript("OnClick", function()
-    local val = slider:GetValue()
-    SendXPCommand(val)
-    XPRateControlDB.lastRate = val
-    PrintMessage("XP rate set to " .. FormatRate(val) .. "x")
-end)
-applyRateBtn:SetScript("OnEnter", function(self)
-    self:SetBackdropColor(CLR.accentHover[1], CLR.accentHover[2], CLR.accentHover[3], 1)
-    ShowTooltip(self, "Send the selected XP rate to the server")
-end)
-applyRateBtn:SetScript("OnLeave", function(self)
-    self:SetBackdropColor(CLR.accentBg[1], CLR.accentBg[2], CLR.accentBg[3], 0.95)
-    HideTooltip()
-end)
-
-------------------------------------------------------------
--- Preset Buttons
-------------------------------------------------------------
-local presets = { { val = 0,   label = "0x" }, { val = 0.5, label = "0.5x" },
-                  { val = 1.0, label = "1x" }, { val = 1.5, label = "1.5x" },
-                  { val = 2.0, label = "2x" } }
-
-local presetBar = frame:CreateTexture(nil, "ARTWORK")
-presetBar:SetPoint("TOP", applyRateBtn, "BOTTOM", 0, -10)
-presetBar:SetHeight(32)
-
-local presetContainer = CreateFrame("Frame", nil, frame)
-presetContainer:SetPoint("TOP", applyRateBtn, "BOTTOM", 0, -10)
-presetContainer:SetSize(260, 32)
-
-local presetLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontDisable")
-presetLabel:SetPoint("TOP", applyRateBtn, "BOTTOM", 0, -10)
-presetLabel:SetText("PRESETS")
-presetLabel:SetTextColor(CLR.muted[1], CLR.muted[2], CLR.muted[3])
+-- Main Presets Row
+local presets = { 
+    { val = 0.0, label = "0x" }, 
+    { val = 0.5, label = "0.5x" },
+    { val = 1.0, label = "1x" }, 
+    { val = 1.5, label = "1.5x" },
+    { val = 2.0, label = "2x" } 
+}
 
 for i, p in ipairs(presets) do
-    local btn = CreateFrame("Button", nil, frame)
-    btn:SetSize(44, 24)
-
-    local xOfs = 14 + (i - 1) * 52
-    btn:SetPoint("TOPLEFT", presetLabel, "BOTTOM", xOfs - 140, -4)
-
-    local isActive = (p.val == DEFAULT_RATE)
-
+    local btn = CreateFrame("Button", nil, RatesTabFrame)
+    btn:SetSize(42, 22)
+    btn:SetPoint("TOPLEFT", RatesTabFrame, "TOPLEFT", 12 + (i-1)*48, -156)
+    
     btn:SetBackdrop({
         bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true, tileSize = 10, edgeSize = 10,
-        insets = { left = 2, right = 2, top = 2, bottom = 2 }
+        tile = true, tileSize = 8, edgeSize = 8,
+        insets = { left = 1, right = 1, top = 1, bottom = 1 }
     })
     btn:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.85)
     btn:SetBackdropBorderColor(CLR.btnEdge[1], CLR.btnEdge[2], CLR.btnEdge[3], 0.6)
-
+    
     local highlight = btn:CreateTexture(nil, "HIGHLIGHT")
     highlight:SetAllPoints()
     highlight:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
     highlight:SetGradientAlpha("HORIZONTAL", 1, 1, 1, 0.05, 1, 1, 1, 0.1)
     highlight:SetBlendMode("ADD")
-
+    
     local label = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     label:SetPoint("CENTER")
     label:SetText(p.label)
-
-    local rc = RateColor(p.val)
-    if p.val == DEFAULT_RATE then
-        label:SetTextColor(rc[1], rc[2], rc[3])
-        btn:SetBackdropBorderColor(rc[1], rc[2], rc[3], 0.8)
-    else
-        label:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
-    end
-
+    label:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+    
     btn:SetScript("OnEnter", function(self)
         self:SetBackdropColor(CLR.btnHover[1], CLR.btnHover[2], CLR.btnHover[3], 1)
         self:SetBackdropBorderColor(CLR.white[1], CLR.white[2], CLR.white[3], 0.5)
         label:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
-        ShowTooltip(self, "Set XP rate to " .. FormatRate(p.val) .. "x")
+        ShowTooltip(self, "Instantly set rate to " .. FormatRate(p.val) .. "x")
     end)
+    
     btn:SetScript("OnLeave", function(self)
+        self:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.85)
         local curVal = slider:GetValue()
         local isCurrent = (math.abs(curVal - p.val) < 0.005)
-        self:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.85)
         if isCurrent then
-            local r2 = RateColor(p.val)
-            self:SetBackdropBorderColor(r2[1], r2[2], r2[3], 0.8)
-            label:SetTextColor(r2[1], r2[2], r2[3])
+            local rc = RateColor(p.val)
+            self:SetBackdropBorderColor(rc[1], rc[2], rc[3], 0.8)
+            label:SetTextColor(rc[1], rc[2], rc[3])
         else
             self:SetBackdropBorderColor(CLR.btnEdge[1], CLR.btnEdge[2], CLR.btnEdge[3], 0.6)
             label:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
         end
         HideTooltip()
     end)
+    
     btn:SetScript("OnClick", function()
-        UpdateUIFromValue(p.val, "preset")
-        SendXPCommand(p.val)
-        XPRateControlDB.lastRate = p.val
-        PrintMessage("XP rate set to " .. FormatRate(p.val) .. "x")
+        ApplyRate(p.val)
     end)
+    
+    tinsert(ratesPresets, { btn = btn, val = p.val, label = label })
 end
 
 ------------------------------------------------------------
--- Divider
+-- Tab 2: Automation (Auto Rested) UI Creation
 ------------------------------------------------------------
-local separator = frame:CreateTexture(nil, "ARTWORK")
-separator:SetPoint("TOPLEFT", presetContainer, "BOTTOMLEFT", 2, -30)
-separator:SetPoint("TOPRIGHT", presetContainer, "BOTTOMRIGHT", -2, -30)
-separator:SetHeight(1)
-separator:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
-separator:SetVertexColor(CLR.panelEdge[1], CLR.panelEdge[2], CLR.panelEdge[3], 0.4)
+CreateSectionHeader(AutomationTabFrame, "AUTO RESTED XP", "Interface\\Icons\\Spell_Holy_Restoration", CLR.green)
 
-------------------------------------------------------------
--- Rested XP Auto-Switching Backend
-------------------------------------------------------------
-local restedRateEdit, normalRateEdit
-local restedFrame = CreateFrame("Frame")
-restedFrame:RegisterEvent("UPDATE_EXHAUSTION")
-restedFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+local restedCheckbox = CreateFrame("CheckButton", "XPRateRestedCheckbox", AutomationTabFrame, "UICheckButtonTemplate")
+restedCheckbox:SetSize(22, 22)
+restedCheckbox:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 12, -30)
 
+local restedCheckLabel = AutomationTabFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+restedCheckLabel:SetPoint("LEFT", restedCheckbox, "RIGHT", 6, 0)
+restedCheckLabel:SetText("Auto-switch rates")
+restedCheckLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+
+local automationStatusText = AutomationTabFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+automationStatusText:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 12, -56)
+automationStatusText:SetText("Status: Inactive")
+
+local function UpdateAutomationStatus()
+    local db = XPRateControlDB
+    if not db then return end
+    
+    if not db.autoRested then
+        automationStatusText:SetText("Status: |cffcc3535Inactive|r")
+        return
+    end
+    
+    local isRested = (GetXPExhaustion() and GetXPExhaustion() > 0) or false
+    local currentRate = isRested and db.restedRate or db.normalRate
+    local stateStr = isRested and "|cff20cc50Rested|r" or "|cffffffffNormal|r"
+    automationStatusText:SetText(string.format("Status: Active (%s) \226\134\146 %sx", stateStr, FormatRate(currentRate)))
+end
+
+-- Rested XP switching logic
 local lastRestedState = nil
 
-local function CheckRestedXP()
+local function CheckRestedXP(silent)
     local db = XPRateControlDB
     if not db or not db.autoRested then return end
 
@@ -471,212 +781,358 @@ local function CheckRestedXP()
         lastRestedState = isRested
         local targetRate = isRested and db.restedRate or db.normalRate
         
-        UpdateUIFromValue(targetRate)
-        SendXPCommand(targetRate)
-        db.lastRate = targetRate
-        
-        local stateStr = isRested and "|cff00ccffRested|r" or "|cffffffffNormal|r"
-        PrintMessage("Rested state changed to " .. stateStr .. ". Auto-switched XP rate to " .. FormatRate(targetRate) .. "x")
+        ApplyRate(targetRate, silent)
+        if not silent then
+            FlashMinimapButton(targetRate)
+            local stateStr = isRested and "|cff00ccffRested|r" or "|cffffffffNormal|r"
+            PrintMessage("Rested state changed to " .. stateStr .. ". Auto-switched XP rate to " .. FormatRate(targetRate) .. "x")
+        end
     end
+    UpdateAutomationStatus()
 end
-
-restedFrame:SetScript("OnEvent", function(self, event, ...)
-    if event == "PLAYER_ENTERING_WORLD" then
-        CheckRestedXP()
-    elseif event == "UPDATE_EXHAUSTION" then
-        CheckRestedXP()
-    end
-end)
-
-local function UpdateRestedSettings()
-    local rVal = tonumber(restedRateEdit:GetText())
-    local nVal = tonumber(normalRateEdit:GetText())
-    
-    if rVal then
-        XPRateControlDB.restedRate = ClampRate(rVal)
-        restedRateEdit:SetText(FormatRate(XPRateControlDB.restedRate))
-    else
-        restedRateEdit:SetText(FormatRate(XPRateControlDB.restedRate or 2.0))
-    end
-    
-    if nVal then
-        XPRateControlDB.normalRate = ClampRate(nVal)
-        normalRateEdit:SetText(FormatRate(XPRateControlDB.normalRate))
-    else
-        normalRateEdit:SetText(FormatRate(XPRateControlDB.normalRate or 1.0))
-    end
-
-    if XPRateControlDB.autoRested then
-        lastRestedState = nil
-        CheckRestedXP()
-    end
-end
-
-------------------------------------------------------------
--- Auto Rested XP Section
-------------------------------------------------------------
-local sectionRested = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-sectionRested:SetPoint("TOPLEFT", separator, "BOTTOMLEFT", 0, -8)
-sectionRested:SetText("AUTO RESTED XP")
-sectionRested:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
-
-local restedCheckbox = CreateFrame("CheckButton", "XPRateRestedCheckbox", frame, "UICheckButtonTemplate")
-restedCheckbox:SetSize(22, 22)
-restedCheckbox:SetPoint("TOPLEFT", sectionRested, "BOTTOMLEFT", 0, -6)
-
-local restedCheckLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-restedCheckLabel:SetPoint("LEFT", restedCheckbox, "RIGHT", 6, 0)
-restedCheckLabel:SetText("Auto-switch rates")
-restedCheckLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
-
--- Rested Rate Input
-local restedRateLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-restedRateLabel:SetPoint("TOPLEFT", restedCheckbox, "BOTTOMLEFT", 4, -10)
-restedRateLabel:SetText("Rested:")
-restedRateLabel:SetTextColor(CLR.muted[1], CLR.muted[2], CLR.muted[3])
-
-restedRateEdit = CreateFrame("EditBox", "XPRateRestedRateEdit", frame)
-restedRateEdit:SetSize(40, 20)
-restedRateEdit:SetPoint("LEFT", restedRateLabel, "RIGHT", 6, 0)
-restedRateEdit:SetAutoFocus(false)
-restedRateEdit:SetFontObject("GameFontHighlightSmall")
-restedRateEdit:SetJustifyH("CENTER")
-restedRateEdit:SetMaxLetters(4)
-restedRateEdit:SetBackdrop({
-    bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
-    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    tile = true, tileSize = 10, edgeSize = 10,
-    insets = { left = 2, right = 2, top = 2, bottom = 2 }
-})
-restedRateEdit:SetBackdropColor(0.02, 0.03, 0.06, 0.85)
-restedRateEdit:SetBackdropBorderColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.6)
-
--- Normal Rate Input
-local normalRateLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-normalRateLabel:SetPoint("LEFT", restedRateEdit, "RIGHT", 24, 0)
-normalRateLabel:SetText("Normal:")
-normalRateLabel:SetTextColor(CLR.muted[1], CLR.muted[2], CLR.muted[3])
-
-normalRateEdit = CreateFrame("EditBox", "XPRateNormalRateEdit", frame)
-normalRateEdit:SetSize(40, 20)
-normalRateEdit:SetPoint("LEFT", normalRateLabel, "RIGHT", 6, 0)
-normalRateEdit:SetAutoFocus(false)
-normalRateEdit:SetFontObject("GameFontHighlightSmall")
-normalRateEdit:SetJustifyH("CENTER")
-normalRateEdit:SetMaxLetters(4)
-normalRateEdit:SetBackdrop({
-    bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
-    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    tile = true, tileSize = 10, edgeSize = 10,
-    insets = { left = 2, right = 2, top = 2, bottom = 2 }
-})
-normalRateEdit:SetBackdropColor(0.02, 0.03, 0.06, 0.85)
-normalRateEdit:SetBackdropBorderColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.6)
-
--- Handlers for the inputs
-restedRateEdit:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
-restedRateEdit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-restedRateEdit:SetScript("OnEditFocusLost", UpdateRestedSettings)
-
-normalRateEdit:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
-normalRateEdit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
-normalRateEdit:SetScript("OnEditFocusLost", UpdateRestedSettings)
 
 restedCheckbox:SetScript("OnClick", function(self)
-    local enabled = (self:GetChecked() == 1) and true or false
+    local enabled = (self:GetChecked() == 1)
     XPRateControlDB.autoRested = enabled
     PrintMessage("Auto Rested XP switching " .. (enabled and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
+    
     if enabled then
         lastRestedState = nil
-        CheckRestedXP()
+        CheckRestedXP(false)
+    else
+        UpdateAutomationStatus()
     end
+    ShowToast(enabled and "Auto Rested Enabled \226\156\147" or "Auto Rested Disabled \226\156\147", false)
 end)
 
--- Tooltips
 restedCheckbox:SetScript("OnEnter", function(self)
     ShowTooltip(self, "Automatically switch XP rates depending on whether you have Rested XP.")
 end)
 restedCheckbox:SetScript("OnLeave", HideTooltip)
 
-restedRateEdit:SetScript("OnEnter", function(self)
-    ShowTooltip(self, "XP rate to use while you have Rested XP.")
-end)
-restedRateEdit:SetScript("OnLeave", HideTooltip)
+-- Rested presets row generator helper
+local function CreateRestedPresetRow(parent, labelText, yOfs, onClickCallback, getValCallback)
+    local label = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    label:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, yOfs)
+    label:SetText(labelText)
+    label:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+    
+    local rates = { 0.0, 0.5, 1.0, 1.5, 2.0 }
+    local buttons = {}
+    
+    for i, r in ipairs(rates) do
+        local btn = CreateFrame("Button", nil, parent)
+        btn:SetSize(36, 18)
+        btn:SetPoint("TOPLEFT", parent, "TOPLEFT", 12 + (i-1)*40, yOfs - 16)
+        
+        btn:SetBackdrop({
+            bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+            tile = true, tileSize = 8, edgeSize = 8,
+            insets = { left = 1, right = 1, top = 1, bottom = 1 }
+        })
+        btn:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.8)
+        
+        local text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        text:SetPoint("CENTER")
+        text:SetText(FormatRate(r) .. "x")
+        btn.text = text
+        
+        btn:SetScript("OnClick", function()
+            onClickCallback(r)
+        end)
+        
+        btn:SetScript("OnEnter", function(self)
+            self:SetBackdropColor(CLR.btnHover[1], CLR.btnHover[2], CLR.btnHover[3], 1)
+        end)
+        btn:SetScript("OnLeave", function(self)
+            self:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.8)
+        end)
+        
+        buttons[r] = btn
+        tinsert(restedPresets, { btn = btn, val = r, getVal = getValCallback })
+    end
+    
+    -- Custom EditBox
+    local edit = CreateFrame("EditBox", nil, parent)
+    edit:SetSize(38, 18)
+    edit:SetPoint("TOPLEFT", parent, "TOPLEFT", 12 + 5*40, yOfs - 16)
+    edit:SetAutoFocus(false)
+    edit:SetFontObject("GameFontHighlightSmall")
+    edit:SetJustifyH("CENTER")
+    edit:SetMaxLetters(4)
+    edit:SetBackdrop({
+        bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 8, edgeSize = 8,
+        insets = { left = 1, right = 1, top = 1, bottom = 1 }
+    })
+    edit:SetBackdropColor(0.02, 0.03, 0.06, 0.85)
+    edit:SetBackdropBorderColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.6)
+    
+    local function UpdateRowUI()
+        local currentVal = getValCallback()
+        local matched = false
+        
+        for r, btn in pairs(buttons) do
+            if math.abs(currentVal - r) < 0.005 then
+                local rc = RateColor(r)
+                btn:SetBackdropBorderColor(rc[1], rc[2], rc[3], 0.9)
+                btn.text:SetTextColor(rc[1], rc[2], rc[3])
+                matched = true
+            else
+                btn:SetBackdropBorderColor(CLR.btnEdge[1], CLR.btnEdge[2], CLR.btnEdge[3], 0.6)
+                btn.text:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+            end
+        end
+        
+        if not edit:HasFocus() then
+            edit:SetText(FormatRate(currentVal))
+            if matched then
+                edit:SetBackdropBorderColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.6)
+                edit:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+            else
+                local rc = RateColor(currentVal)
+                edit:SetBackdropBorderColor(rc[1], rc[2], rc[3], 0.9)
+                edit:SetTextColor(rc[1], rc[2], rc[3])
+            end
+        end
+    end
+    
+    edit:SetScript("OnEditFocusGained", function(self)
+        self:SetBackdropBorderColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3], 0.9)
+    end)
+    
+    edit:SetScript("OnEscapePressed", function(self)
+        self.reverting = true
+        self:SetText(FormatRate(getValCallback()))
+        self:ClearFocus()
+    end)
+    
+    edit:SetScript("OnEnterPressed", function(self)
+        self:ClearFocus()
+    end)
+    
+    edit:SetScript("OnEditFocusLost", function(self)
+        self:SetBackdropBorderColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.6)
+        if self.reverting then
+            self.reverting = nil
+            UpdateRowUI()
+            return
+        end
+        local val = tonumber(self:GetText())
+        if val then
+            onClickCallback(val)
+        else
+            UpdateRowUI()
+        end
+    end)
+    
+    edit:SetScript("OnEnter", function(self)
+        ShowTooltip(self, "Type a custom rate and press Enter")
+    end)
+    edit:SetScript("OnLeave", HideTooltip)
+    
+    return UpdateRowUI
+end
 
-normalRateEdit:SetScript("OnEnter", function(self)
-    ShowTooltip(self, "XP rate to use when you do not have Rested XP.")
-end)
-normalRateEdit:SetScript("OnLeave", HideTooltip)
+local updateRestedRow = CreateRestedPresetRow(AutomationTabFrame, "🛏 When Rested", -78, 
+    function(val)
+        XPRateControlDB.restedRate = ClampRate(val)
+        ShowToast("Rested Rate updated \226\156\147", false)
+        lastRestedState = nil
+        CheckRestedXP(false)
+    end,
+    function()
+        return XPRateControlDB and XPRateControlDB.restedRate or 2.0
+    end
+)
 
-local separator2 = frame:CreateTexture(nil, "ARTWORK")
-separator2:SetPoint("TOPLEFT", separator, "BOTTOMLEFT", 0, -82)
-separator2:SetPoint("TOPRIGHT", separator, "BOTTOMRIGHT", 0, -82)
-separator2:SetHeight(1)
-separator2:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
-separator2:SetVertexColor(CLR.panelEdge[1], CLR.panelEdge[2], CLR.panelEdge[3], 0.4)
+local updateNormalRow = CreateRestedPresetRow(AutomationTabFrame, "⚔ When Normal", -134, 
+    function(val)
+        XPRateControlDB.normalRate = ClampRate(val)
+        ShowToast("Normal Rate updated \226\156\147", false)
+        lastRestedState = nil
+        CheckRestedXP(false)
+    end,
+    function()
+        return XPRateControlDB and XPRateControlDB.normalRate or 1.0
+    end
+)
+
+local restedBackendFrame = CreateFrame("Frame")
+restedBackendFrame:RegisterEvent("UPDATE_EXHAUSTION")
+restedBackendFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+restedBackendFrame:SetScript("OnEvent", function(self, event)
+    CheckRestedXP(event == "PLAYER_ENTERING_WORLD")
+end)
 
 ------------------------------------------------------------
--- Joyous Journeys Section
+-- Tab 3: Buffs (Joyous Journeys) UI Creation
 ------------------------------------------------------------
-local sectionJJ = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-sectionJJ:SetPoint("TOPLEFT", separator2, "BOTTOMLEFT", 0, -8)
-sectionJJ:SetText("JOYOUS JOURNEYS")
-sectionJJ:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+CreateSectionHeader(BuffsTabFrame, "JOYOUS JOURNEYS", "Interface\\Icons\\Achievement_Quests_Completed_07", CLR.gold)
 
-local jjDesc = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-jjDesc:SetPoint("TOPLEFT", sectionJJ, "BOTTOMLEFT", 0, -4)
+local jjDesc = BuffsTabFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+jjDesc:SetPoint("TOPLEFT", BuffsTabFrame, "TOPLEFT", 12, -30)
 jjDesc:SetText("50% XP buff for characters below max level")
-jjDesc:SetTextColor(CLR.muted[1], CLR.muted[2], CLR.muted[3])
+jjDesc:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
 
-local jjCheckbox = CreateFrame("CheckButton", "XPRateJJCheckbox", frame, "UICheckButtonTemplate")
+-- Visual Card Hero
+local jjCard = CreateFrame("Frame", nil, BuffsTabFrame)
+jjCard:SetSize(288, 80)
+jjCard:SetPoint("TOP", BuffsTabFrame, "TOP", 0, -48)
+jjCard:SetBackdrop({
+    bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 10, edgeSize = 10,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 }
+})
+jjCard:SetBackdropColor(0.02, 0.03, 0.05, 0.9)
+jjCard:SetBackdropBorderColor(CLR.panelEdge[1], CLR.panelEdge[2], CLR.panelEdge[3], 0.6)
+
+local jjIcon = jjCard:CreateTexture(nil, "ARTWORK")
+jjIcon:SetSize(36, 36)
+jjIcon:SetPoint("CENTER", jjCard, "CENTER", 0, 10)
+jjIcon:SetTexture("Interface\\Icons\\Achievement_Quests_Completed_07")
+
+local jjStatusText = jjCard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+jjStatusText:SetPoint("TOP", jjIcon, "BOTTOM", 0, -6)
+jjStatusText:SetText("BUFF INACTIVE")
+
+local jjCheckbox = CreateFrame("CheckButton", "XPRateJJCheckbox", BuffsTabFrame, "UICheckButtonTemplate")
 jjCheckbox:SetSize(22, 22)
-jjCheckbox:SetPoint("TOPLEFT", jjDesc, "BOTTOMLEFT", 0, -8)
+jjCheckbox:SetPoint("TOPLEFT", jjCard, "BOTTOMLEFT", 4, -10)
 
-local jjCheckLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+local jjCheckLabel = BuffsTabFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 jjCheckLabel:SetPoint("LEFT", jjCheckbox, "RIGHT", 6, 0)
-jjCheckLabel:SetText("Enabled")
+jjCheckLabel:SetText("Enable Joyous Journeys Buff")
 jjCheckLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
 
-local applyJJBtn = MakeButton(frame, 80, 24, CLR.accentBg, CLR.accentEdge)
-applyJJBtn:SetPoint("LEFT", jjCheckLabel, "RIGHT", 20, 0)
+local function UpdateJJUI(enabled)
+    jjCheckbox:SetChecked(enabled)
+    if enabled then
+        jjIcon:SetDesaturated(false)
+        jjIcon:SetAlpha(1.0)
+        jjCard:SetBackdropBorderColor(CLR.gold[1], CLR.gold[2], CLR.gold[3], 0.8)
+        jjStatusText:SetText("BUFF ACTIVE")
+        jjStatusText:SetTextColor(CLR.gold[1], CLR.gold[2], CLR.gold[3])
+    else
+        jjIcon:SetDesaturated(true)
+        jjIcon:SetAlpha(0.4)
+        jjCard:SetBackdropBorderColor(CLR.panelEdge[1], CLR.panelEdge[2], CLR.panelEdge[3], 0.6)
+        jjStatusText:SetText("BUFF INACTIVE")
+        jjStatusText:SetTextColor(CLR.muted[1], CLR.muted[2], CLR.muted[3])
+    end
+end
 
-local applyJJText = applyJJBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-applyJJText:SetPoint("CENTER")
-applyJJText:SetText("Apply")
-applyJJText:SetTextColor(0.85, 0.95, 1)
-
-applyJJBtn:SetScript("OnClick", function()
-    local enabled = (jjCheckbox:GetChecked() == 1) and true or false
+jjCheckbox:SetScript("OnClick", function(self)
+    local enabled = (self:GetChecked() == 1)
     SendJJCommand(enabled)
     XPRateControlDB.jjEnabled = enabled
+    UpdateJJUI(enabled)
+    ShowToast(enabled and "JJ Enabled \226\156\147" or "JJ Disabled \226\156\147", false)
     PrintMessage("Joyous Journeys " .. (enabled and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
-end)
-applyJJBtn:SetScript("OnEnter", function(self)
-    self:SetBackdropColor(CLR.accentHover[1], CLR.accentHover[2], CLR.accentHover[3], 1)
-    ShowTooltip(self, "Toggle the Joyous Journeys 50% XP buff on the server")
-end)
-applyJJBtn:SetScript("OnLeave", function(self)
-    self:SetBackdropColor(CLR.accentBg[1], CLR.accentBg[2], CLR.accentBg[3], 0.95)
-    HideTooltip()
 end)
 
 jjCheckbox:SetScript("OnEnter", function(self)
-    ShowTooltip(self, "Check to enable Joyous Journeys")
+    ShowTooltip(self, "Toggle the Joyous Journeys 50% XP buff on the server")
 end)
 jjCheckbox:SetScript("OnLeave", HideTooltip)
 
 ------------------------------------------------------------
--- Footer
+-- Navigation Tab Bar
+------------------------------------------------------------
+local tabButtons = {}
+local tabNames = { "Rates", "Automation", "Buffs" }
+local tabIcons = {
+    "Interface\\Icons\\INV_Misc_Experience_01",
+    "Interface\\Icons\\Spell_Holy_Restoration",
+    "Interface\\Icons\\Achievement_Quests_Completed_07"
+}
+
+local function SetActiveTab(index)
+    for i, btn in ipairs(tabButtons) do
+        if i == index then
+            btn:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.95)
+            btn:SetBackdropBorderColor(tabColors[i][1], tabColors[i][2], tabColors[i][3], 0.9)
+            btn.text:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+            btn.icon:SetVertexColor(1, 1, 1, 1)
+            tabFrames[i]:Show()
+        else
+            btn:SetBackdropColor(CLR.panelBg[1], CLR.panelBg[2], CLR.panelBg[3], 0.6)
+            btn:SetBackdropBorderColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.4)
+            btn.text:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+            btn.icon:SetVertexColor(0.6, 0.6, 0.6, 0.7)
+            tabFrames[i]:Hide()
+        end
+    end
+    
+    -- Hide toast whenever we switch tabs to keep view clear
+    toast:Hide()
+    
+    -- Make sure row presets reflect latest db settings
+    if index == 2 then
+        updateRestedRow()
+        updateNormalRow()
+        UpdateAutomationStatus()
+    end
+end
+
+for i = 1, 3 do
+    local btn = CreateFrame("Button", nil, frame)
+    btn:SetSize(98, 24)
+    btn:SetPoint("TOPLEFT", frame, "TOPLEFT", 10 + (i-1)*101, -38)
+    
+    btn:SetBackdrop({
+        bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 10, edgeSize = 10,
+        insets = { left = 2, right = 2, top = 2, bottom = 2 }
+    })
+    
+    local highlight = btn:CreateTexture(nil, "HIGHLIGHT")
+    highlight:SetAllPoints()
+    highlight:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
+    highlight:SetGradientAlpha("HORIZONTAL", 1, 1, 1, 0.05, 1, 1, 1, 0.1)
+    highlight:SetBlendMode("ADD")
+    
+    local icon = btn:CreateTexture(nil, "ARTWORK")
+    icon:SetSize(12, 12)
+    icon:SetPoint("LEFT", btn, "LEFT", 6, 0)
+    icon:SetTexture(tabIcons[i])
+    btn.icon = icon
+    
+    local text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    text:SetPoint("LEFT", icon, "RIGHT", 4, 0)
+    text:SetText(tabNames[i])
+    btn.text = text
+    
+    btn:SetScript("OnClick", function()
+        SetActiveTab(i)
+    end)
+    
+    tabButtons[i] = btn
+end
+
+------------------------------------------------------------
+-- Footer bevel line and instructions
 ------------------------------------------------------------
 local footerLine = frame:CreateTexture(nil, "ARTWORK")
-footerLine:SetPoint("TOPLEFT", jjCheckbox, "BOTTOMLEFT", -2, -12)
-footerLine:SetPoint("RIGHT", frame, "RIGHT", -16, 0)
+footerLine:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 10, 28)
+footerLine:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -10, 28)
 footerLine:SetHeight(1)
 footerLine:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
-footerLine:SetVertexColor(CLR.panelEdge[1], CLR.panelEdge[2], CLR.panelEdge[3], 0.3)
+footerLine:SetVertexColor(CLR.panelEdge[1], CLR.panelEdge[2], CLR.panelEdge[3], 0.6)
+
+local footerLine2 = frame:CreateTexture(nil, "ARTWORK")
+footerLine2:SetPoint("TOPLEFT", footerLine, "BOTTOMLEFT", 0, -1)
+footerLine2:SetPoint("TOPRIGHT", footerLine, "BOTTOMRIGHT", 0, -1)
+footerLine2:SetHeight(1)
+footerLine2:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
+footerLine2:SetVertexColor(0, 0, 0, 0.8)
 
 local footer = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-footer:SetPoint("TOP", footerLine, "BOTTOM", 0, -6)
+footer:SetPoint("BOTTOM", frame, "BOTTOM", 0, 8)
 footer:SetText("Drag title bar to move \226\148\140 ESC to close")
 footer:SetTextColor(CLR.muted[1], CLR.muted[2], CLR.muted[3])
 
@@ -715,14 +1171,14 @@ glowTex:SetSize(42, 42)
 glowTex:SetPoint("CENTER", minimapButton, "CENTER", 0, 0)
 glowTex:SetTexture("Interface/Minimap/MiniMap-TrackingBorder")
 glowTex:SetAlpha(0)
-glowTex.isAnimating = false
 
 local glowElapsed = 0
-local function GlowPulse(elapsed)
+local glowUpdater = CreateFrame("Frame", nil, minimapButton)
+glowUpdater:SetScript("OnUpdate", function(self, elapsed)
     glowElapsed = glowElapsed + elapsed
     local alpha = 0.15 + 0.15 * math.sin(glowElapsed * 2.5)
     glowTex:SetAlpha(alpha)
-end
+end)
 
 local function UpdateMinimapButtonPosition()
     local angle = XPRateControlDB and XPRateControlDB.minimapPos or DEFAULT_MINIMAP_ANGLE
@@ -734,7 +1190,6 @@ local function UpdateMinimapButtonPosition()
     minimapButton:SetFrameLevel(20)
 end
 
--- Drag
 minimapButton:RegisterForDrag("LeftButton")
 minimapButton.dragging = false
 
@@ -764,20 +1219,13 @@ minimapButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 
 local dropdownFrame = CreateFrame("Frame", "XPRateMinimapDropdown", UIParent, "UIDropDownMenuTemplate")
 
-local function ApplyRateFromMenu(rate)
-    UpdateUIFromValue(rate)
-    SendXPCommand(rate)
-    XPRateControlDB.lastRate = rate
-    PrintMessage("XP rate set to " .. FormatRate(rate) .. "x")
-end
-
 local dropdownMenu = {
     { text = "XP Rate Control", isTitle = true, notCheckable = true },
-    { text = "0x (Off)",         func = function() ApplyRateFromMenu(0)   end, notCheckable = true },
-    { text = "0.5x",            func = function() ApplyRateFromMenu(0.5) end, notCheckable = true },
-    { text = "1x (Blizzlike)",  func = function() ApplyRateFromMenu(1.0) end, notCheckable = true },
-    { text = "1.5x",            func = function() ApplyRateFromMenu(1.5) end, notCheckable = true },
-    { text = "2x (Maximum)",    func = function() ApplyRateFromMenu(2.0) end, notCheckable = true },
+    { text = "0x (Off)",         func = function() ApplyRate(0)   end, notCheckable = true },
+    { text = "0.5x",            func = function() ApplyRate(0.5) end, notCheckable = true },
+    { text = "1x (Blizzlike)",  func = function() ApplyRate(1.0) end, notCheckable = true },
+    { text = "1.5x",            func = function() ApplyRate(1.5) end, notCheckable = true },
+    { text = "2x (Maximum)",    func = function() ApplyRate(2.0) end, notCheckable = true },
     { text = " ",               disabled = true, notCheckable = true },
     { text = "Open Panel...",   func = function() frame:Show() end, notCheckable = true },
 }
@@ -796,8 +1244,10 @@ minimapButton:SetScript("OnClick", function(self, button)
 end)
 
 minimapButton:SetScript("OnEnter", function(self)
+    local rateStr = FormatRate(XPRateControlDB and XPRateControlDB.lastRate or DEFAULT_RATE)
     ShowTooltip(self,
         "|cff00ccffXP Rate Control|r\n" ..
+        "Current Rate: |cff20cc50" .. rateStr .. "x|r\n\n" ..
         "|cffffffffLeft-Click:|r Toggle panel\n" ..
         "|cffffffffRight-Click:|r Quick menu\n" ..
         "|cffffffffDrag:|r Reposition"
@@ -825,16 +1275,32 @@ initFrame:SetScript("OnEvent", function(self, event, loadedAddon)
     if db.autoRested  == nil then db.autoRested  = false end
     if db.restedRate  == nil then db.restedRate  = 2.0 end
     if db.normalRate  == nil then db.normalRate  = 1.0 end
+    if db.firstRun    == nil then db.firstRun    = true end
+
+    -- Position restoration
+    if db.framePos then
+        frame:ClearAllPoints()
+        frame:SetPoint(db.framePos.point, UIParent, db.framePos.relativePoint, db.framePos.xOfs, db.framePos.yOfs)
+    else
+        frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    end
 
     UpdateUIFromValue(db.lastRate)
-    jjCheckbox:SetChecked(db.jjEnabled)
+    UpdateJJUI(db.jjEnabled)
     restedCheckbox:SetChecked(db.autoRested)
-    restedRateEdit:SetText(FormatRate(db.restedRate))
-    normalRateEdit:SetText(FormatRate(db.normalRate))
+    
+    updateRestedRow()
+    updateNormalRow()
+    UpdateAutomationStatus()
     UpdateMinimapButtonPosition()
 
+    if db.lastRate and minimapButton.icon then
+        local rc = RateColor(db.lastRate)
+        minimapButton.icon:SetVertexColor(rc[1], rc[2], rc[3])
+    end
+
     if db.autoRested then
-        CheckRestedXP()
+        CheckRestedXP(true)
     end
 
     if db.showMinimap then
@@ -843,7 +1309,19 @@ initFrame:SetScript("OnEvent", function(self, event, loadedAddon)
         minimapButton:Hide()
     end
 
-    PrintMessage("Loaded. Type |cff00ff00/xp|r to open, |cff00ff00/xp help|r for commands.")
+    SetActiveTab(1)
+
+    -- First load banner
+    if db.firstRun then
+        PrintMessage("Welcome to XP Rate Control v1.1!")
+        PrintMessage("  - Click minimap hourglass icon to toggle settings panel.")
+        PrintMessage("  - Right-click minimap icon for quick rate adjustments.")
+        PrintMessage("  - Changes are applied instantly. Check out the new tabs!")
+        db.firstRun = false
+    else
+        PrintMessage("Loaded. Type |cff00ff00/xp|r to open, |cff00ff00/xp help|r for commands.")
+    end
+
     self:UnregisterEvent("ADDON_LOADED")
 end)
 
@@ -894,8 +1372,5 @@ SlashCmdList["XPRATECONTROL"] = function(msg)
         return
     end
 
-    UpdateUIFromValue(val)
-    SendXPCommand(val)
-    XPRateControlDB.lastRate = val
-    PrintMessage("XP rate set to " .. FormatRate(val) .. "x")
+    ApplyRate(val)
 end
