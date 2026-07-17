@@ -1136,7 +1136,7 @@ background:SetSize(20, 20)
 background:SetPoint("TOPLEFT", minimapButton, "TOPLEFT", 7, -5)
 background:SetTexture("Interface\\Minimap\\UI-Minimap-Background")
 
-minimapButton.icon = minimapButton:CreateTexture("XPRateMinimapButtonIcon", "BACKGROUND")
+minimapButton.icon = minimapButton:CreateTexture("XPRateMinimapButtonIcon", "ARTWORK")
 minimapButton.icon:SetSize(20, 20)
 minimapButton.icon:SetPoint("TOPLEFT", minimapButton, "TOPLEFT", 7, -5)
 minimapButton.icon:SetTexture("Interface\\AddOns\\XPRateControl\\Textures\\Icon_Minimap")
