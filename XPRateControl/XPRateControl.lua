@@ -173,32 +173,31 @@ version:SetTextColor(CLR.muted[1], CLR.muted[2], CLR.muted[3])
 
 -- Close button
 local closeBtn = CreateFrame("Button", nil, frame)
-closeBtn:SetSize(26, 26)
+closeBtn:SetSize(22, 22)
 closeBtn:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -8)
+closeBtn:SetBackdrop({
+    bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 10, edgeSize = 10,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 }
+})
+closeBtn:SetBackdropColor(0.35, 0.08, 0.08, 0.9)
+closeBtn:SetBackdropBorderColor(0.7, 0.2, 0.2, 0.8)
 
-local closeBg = closeBtn:CreateTexture(nil, "BACKGROUND")
-closeBg:SetAllPoints()
-closeBg:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
-closeBg:SetVertexColor(0.35, 0.08, 0.08, 0.8)
-
-local closeBorder = closeBtn:CreateTexture(nil, "OVERLAY")
-closeBorder:SetAllPoints()
-closeBorder:SetTexture("Interface\\Tooltips\\UI-Tooltip-Border")
-closeBorder:SetTexCoord(0.28, 0.72, 0.28, 0.72)
-closeBorder:SetVertexColor(0.8, 0.25, 0.25, 0.7)
-
-local closeText = closeBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-closeText:SetPoint("CENTER", closeBtn, "CENTER", 0, 1)
+local closeText = closeBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+closeText:SetPoint("CENTER", closeBtn, "CENTER", 0, 0)
 closeText:SetText("X")
-closeText:SetTextColor(0.85, 0.85, 0.85)
+closeText:SetTextColor(0.9, 0.9, 0.9)
 
 closeBtn:SetScript("OnEnter", function()
-    closeBg:SetVertexColor(0.7, 0.1, 0.1, 0.95)
-    closeText:SetTextColor(1, 0.4, 0.4)
+    closeBtn:SetBackdropColor(0.7, 0.12, 0.12, 1.0)
+    closeBtn:SetBackdropBorderColor(1.0, 0.35, 0.35, 1.0)
+    closeText:SetTextColor(1, 1, 1)
 end)
 closeBtn:SetScript("OnLeave", function()
-    closeBg:SetVertexColor(0.35, 0.08, 0.08, 0.8)
-    closeText:SetTextColor(0.85, 0.85, 0.85)
+    closeBtn:SetBackdropColor(0.35, 0.08, 0.08, 0.9)
+    closeBtn:SetBackdropBorderColor(0.7, 0.2, 0.2, 0.8)
+    closeText:SetTextColor(0.9, 0.9, 0.9)
 end)
 closeBtn:SetScript("OnClick", function()
     frame:Hide()
@@ -410,30 +409,6 @@ heroCard:SetBackdrop({
 heroCard:SetBackdropColor(0.02, 0.03, 0.05, 0.9)
 heroCard:SetBackdropBorderColor(CLR.panelEdge[1] * 1.3, CLR.panelEdge[2] * 1.3, CLR.panelEdge[3] * 1.3, 0.8)
 
--- Speedometer dial track
-local dialTrack = heroCard:CreateTexture(nil, "BACKGROUND")
-dialTrack:SetSize(72, 72)
-dialTrack:SetPoint("CENTER", heroCard, "CENTER", 0, 0)
-dialTrack:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
-dialTrack:SetVertexColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.4)
-
--- Speedometer Dial Dot
-local dialDot = heroCard:CreateTexture(nil, "OVERLAY")
-dialDot:SetSize(8, 8)
-dialDot:SetTexture("Interface\\SocialFrame\\ChatFrameSearchResult-Dot")
-
-local function UpdateDial(rate)
-    local percent = rate / RATE_MAX
-    local currentAngle = 225 - (percent * 270)
-    local rad = math.rad(currentAngle)
-    local radius = 32
-    local x = radius * math.cos(rad)
-    local y = radius * math.sin(rad)
-    dialDot:SetPoint("CENTER", heroCard, "CENTER", x, y)
-    local rc = RateColor(rate)
-    dialDot:SetVertexColor(rc[1], rc[2], rc[3])
-end
-
 -- Value scaling pulse container
 local pulseFrame = CreateFrame("Frame", nil, heroCard)
 pulseFrame:SetSize(100, 24)
@@ -590,7 +565,6 @@ local function UpdateUIFromValue(value, source)
     trackFill:SetVertexColor(rc[1], rc[2], rc[3], 0.9)
     thumb:SetVertexColor(rc[1], rc[2], rc[3])
 
-    UpdateDial(valNum)
     UpdateTagChip(valNum)
 
     sliderBubbleText:SetText(formatted .. "x")
