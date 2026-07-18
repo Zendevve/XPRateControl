@@ -844,93 +844,97 @@ local function GetCurrentGroupSize()
     return 1
 end
 
-local function UpdateAutomationStatus()
+local lastAppliedRate = nil
+local lastAppliedMode = nil
+
+local function EvaluateAutomation(silent, reason)
     local db = XPRateControlDB
     if not db then return end
-    
-    local gSize = GetCurrentGroupSize()
 
-    if db.autoRested then
-        local isRested = (GetXPExhaustion() and GetXPExhaustion() > 0) or false
-        local currentRate = isRested and db.restedRate or db.normalRate
-        local stateStr = isRested and "|cff20cc50Rested|r" or "|cffffffffNormal|r"
-        automationStatusText:SetText(string.format("Status: Active (%s) -> %sx", stateStr, FormatRate(currentRate)))
-        automationStatusText:SetTextColor(0.2, 0.9, 0.4)
-    else
-        automationStatusText:SetText("Status: |cffcc3535Inactive|r")
-        automationStatusText:SetTextColor(0.8, 0.2, 0.2)
+    local gSize = GetCurrentGroupSize()
+    local isRested = (GetXPExhaustion() and GetXPExhaustion() > 0) or false
+    
+    local targetRate = nil
+    local activeMode = nil
+
+    if gSize > 1 and db.autoGroup then
+        -- Party Auto-Scaling priority in groups (2P-5P)
+        local mappedSize = math.min(gSize, 5)
+        targetRate = (db.groupRates and db.groupRates[mappedSize]) or 1.00
+        local stateText = (gSize >= 5) and "5P Group" or (gSize .. "P Group")
+        activeMode = "Party Scaling (" .. stateText .. ")"
+    elseif db.autoRested then
+        -- Auto Rested XP priority when Solo (or if Party Scaling is OFF)
+        targetRate = isRested and db.restedRate or db.normalRate
+        local stateStr = isRested and "Rested" or "Normal"
+        activeMode = "Auto Rested (" .. stateStr .. ")"
+    elseif db.autoGroup then
+        -- Party Auto-Scaling Solo rate when Auto Rested is OFF
+        targetRate = (db.groupRates and db.groupRates[1]) or 1.00
+        activeMode = "Party Scaling (Solo)"
     end
 
+    if targetRate then
+        local rateChanged = (lastAppliedRate == nil or math.abs(targetRate - lastAppliedRate) > 0.005 or activeMode ~= lastAppliedMode)
+        lastAppliedRate = targetRate
+        lastAppliedMode = activeMode
+
+        ApplyRate(targetRate, silent)
+
+        if not silent and rateChanged then
+            FlashMinimapButton(targetRate)
+            local causeMsg = reason and (" [" .. reason .. "]") or ""
+            PrintMessage("|cff00ff00Auto-Switched|r -> " .. FormatRate(targetRate) .. "x via |cff00ccff" .. activeMode .. "|r" .. causeMsg)
+            ShowToast(string.format("Auto (%s) -> %sx", activeMode, FormatRate(targetRate)), false)
+        end
+    end
+
+    UpdateAutomationStatus()
+end
+
+function UpdateAutomationStatus()
+    local db = XPRateControlDB
+    if not db then return end
+
+    local gSize = GetCurrentGroupSize()
+    local isRested = (GetXPExhaustion() and GetXPExhaustion() > 0) or false
+
+    -- Rested Status Label
+    if db.autoRested then
+        local isOverridden = (gSize > 1 and db.autoGroup)
+        local currentRate = isRested and db.restedRate or db.normalRate
+        local stateStr = isRested and "|cff20cc50Rested|r" or "|cffffffffNormal|r"
+        if isOverridden then
+            automationStatusText:SetText("Status: |cff888888Standby (Party Priority)|r")
+        else
+            automationStatusText:SetText(string.format("Status: Active (%s) -> %sx", stateStr, FormatRate(currentRate)))
+        end
+    else
+        automationStatusText:SetText("Status: |cffcc3535Inactive|r")
+    end
+
+    -- Group Status Label
     if db.autoGroup then
+        local isOverridden = (gSize == 1 and db.autoRested)
         local mappedSize = math.min(gSize, 5)
         local targetRate = (db.groupRates and db.groupRates[mappedSize]) or 1.00
         local stateText = (gSize >= 5) and "5P Group" or ((gSize > 1) and (gSize .. "P Group") or "Solo")
-        groupStatusText:SetText(string.format("Status: Active (%s) -> %sx", stateText, FormatRate(targetRate)))
-        groupStatusText:SetTextColor(0.2, 0.9, 0.4)
+        if isOverridden then
+            groupStatusText:SetText("Status: |cff888888Standby (Rested Priority Solo)|r")
+        else
+            groupStatusText:SetText(string.format("Status: Active (%s) -> %sx", stateText, FormatRate(targetRate)))
+        end
     else
         groupStatusText:SetText("Status: |cffcc3535Inactive|r")
-        groupStatusText:SetTextColor(0.8, 0.2, 0.2)
     end
-end
-
--- Rested XP switching logic
-local lastRestedState = nil
-
-local function CheckRestedXP(silent)
-    local db = XPRateControlDB
-    if not db or not db.autoRested then return end
-    if db.autoGroup and GetCurrentGroupSize() > 1 then return end
-
-    local isRested = (GetXPExhaustion() and GetXPExhaustion() > 0) or false
-    if lastRestedState == nil or isRested ~= lastRestedState then
-        lastRestedState = isRested
-        local targetRate = isRested and db.restedRate or db.normalRate
-        
-        ApplyRate(targetRate, silent)
-        if not silent then
-            FlashMinimapButton(targetRate)
-            local stateStr = isRested and "|cff00ccffRested|r" or "|cffffffffNormal|r"
-            PrintMessage("Rested state changed to " .. stateStr .. ". Auto-switched XP rate to " .. FormatRate(targetRate) .. "x")
-        end
-    end
-    UpdateAutomationStatus()
-end
-
--- Group / Party XP switching logic
-local lastGroupSize = nil
-
-local function CheckGroupXP(silent)
-    local db = XPRateControlDB
-    if not db or not db.autoGroup then return end
-
-    local gSize = GetCurrentGroupSize()
-    local mappedSize = math.min(gSize, 5)
-    local targetRate = (db.groupRates and db.groupRates[mappedSize]) or 1.00
-
-    if lastGroupSize == nil or gSize ~= lastGroupSize then
-        lastGroupSize = gSize
-        ApplyRate(targetRate, silent)
-        if not silent then
-            FlashMinimapButton(targetRate)
-            local sizeLabel = (gSize > 1) and (gSize .. " Players") or "Solo"
-            PrintMessage("Group changed (" .. sizeLabel .. "). Auto-switched XP rate to " .. FormatRate(targetRate) .. "x")
-        end
-    end
-    UpdateAutomationStatus()
 end
 
 restedCheckbox:SetScript("OnClick", function(self)
     local enabled = self:GetChecked() and true or false
     XPRateControlDB.autoRested = enabled
-    PrintMessage("Auto Rested XP switching " .. (enabled and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
-    
-    if enabled then
-        lastRestedState = nil
-        CheckRestedXP(false)
-    else
-        UpdateAutomationStatus()
-    end
-    ShowToast(enabled and "Auto Rested Enabled [OK]" or "Auto Rested Disabled [OK]", false)
+    lastAppliedRate = nil
+    lastAppliedMode = nil
+    EvaluateAutomation(false, enabled and "Rested Auto ON" or "Rested Auto OFF")
 end)
 
 restedCheckbox:SetScript("OnEnter", function(self)
@@ -1069,9 +1073,9 @@ end
 local updateRestedRow = CreateRestedPresetRow(AutoRestedSubFrame, "Rested Rate", -72, 
     function(val)
         XPRateControlDB.restedRate = ClampRate(val)
-        ShowToast("Rested Rate updated [OK]", false)
-        lastRestedState = nil
-        CheckRestedXP(false)
+        lastAppliedRate = nil
+        lastAppliedMode = nil
+        EvaluateAutomation(false, "Rested Rate Updated")
     end,
     function()
         return XPRateControlDB and XPRateControlDB.restedRate or 2.0
@@ -1081,9 +1085,9 @@ local updateRestedRow = CreateRestedPresetRow(AutoRestedSubFrame, "Rested Rate",
 local updateNormalRow = CreateRestedPresetRow(AutoRestedSubFrame, "Normal Rate", -114, 
     function(val)
         XPRateControlDB.normalRate = ClampRate(val)
-        ShowToast("Normal Rate updated [OK]", false)
-        lastRestedState = nil
-        CheckRestedXP(false)
+        lastAppliedRate = nil
+        lastAppliedMode = nil
+        EvaluateAutomation(false, "Normal Rate Updated")
     end,
     function()
         return XPRateControlDB and XPRateControlDB.normalRate or 1.0
@@ -1094,22 +1098,16 @@ local restedBackendFrame = CreateFrame("Frame")
 restedBackendFrame:RegisterEvent("UPDATE_EXHAUSTION")
 restedBackendFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 restedBackendFrame:SetScript("OnEvent", function(self, event)
-    CheckRestedXP(event == "PLAYER_ENTERING_WORLD")
+    EvaluateAutomation(event == "PLAYER_ENTERING_WORLD", event)
 end)
 
 -- Controls in AutoGroupSubFrame
 groupCheckbox:SetScript("OnClick", function(self)
     local enabled = self:GetChecked() and true or false
     XPRateControlDB.autoGroup = enabled
-    PrintMessage("Party XP auto-scaling " .. (enabled and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
-    
-    if enabled then
-        lastGroupSize = nil
-        CheckGroupXP(false)
-    else
-        UpdateAutomationStatus()
-    end
-    ShowToast(enabled and "Party Scaling Enabled [OK]" or "Party Scaling Disabled [OK]", false)
+    lastAppliedRate = nil
+    lastAppliedMode = nil
+    EvaluateAutomation(false, enabled and "Party Auto ON" or "Party Auto OFF")
 end)
 
 groupCheckbox:SetScript("OnEnter", function(self)
@@ -1190,9 +1188,9 @@ updateGroupRow = CreateRestedPresetRow(AutoGroupSubFrame, "Target Rate for Party
     function(val)
         if XPRateControlDB and XPRateControlDB.groupRates then
             XPRateControlDB.groupRates[groupSelectedSize] = ClampRate(val)
-            ShowToast(string.format("%s Rate set to %sx [OK]", partyLabels[groupSelectedSize], FormatRate(val)), false)
-            lastGroupSize = nil
-            CheckGroupXP(false)
+            lastAppliedRate = nil
+            lastAppliedMode = nil
+            EvaluateAutomation(false, string.format("%s Rate Updated", partyLabels[groupSelectedSize]))
             UpdatePartyButtonsUI()
             if updateGroupRow then updateGroupRow() end
         end
@@ -1208,7 +1206,7 @@ groupBackendFrame:RegisterEvent("RAID_ROSTER_UPDATE")
 groupBackendFrame:RegisterEvent("PARTY_LEADER_CHANGED")
 groupBackendFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 groupBackendFrame:SetScript("OnEvent", function(self, event)
-    CheckGroupXP(event == "PLAYER_ENTERING_WORLD")
+    EvaluateAutomation(event == "PLAYER_ENTERING_WORLD", event)
 end)
 
 SelectAutomationSubTab(1)
@@ -1600,11 +1598,8 @@ initFrame:SetScript("OnEvent", function(self, event, loadedAddon)
             XPRateMinimapButtonBorder:SetVertexColor(rc[1], rc[2], rc[3])
         end
 
-        if db.autoRested then
-            CheckRestedXP(true)
-        end
-        if db.autoGroup then
-            CheckGroupXP(true)
+        if db.autoRested or db.autoGroup then
+            EvaluateAutomation(true, "Addon Init")
         end
 
         if db.showMinimap then
