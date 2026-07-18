@@ -33,6 +33,7 @@ local CLR = {
     btnEdge   = { 0.22, 0.35, 0.55 },
     btnHover  = { 0.12, 0.22, 0.38 },
     btnPress  = { 0.05, 0.1, 0.18 },
+    btnActive = { 0.06, 0.22, 0.42 },
     accentBg  = { 0.06, 0.22, 0.42 },
     accentEdge= { 0.25, 0.55, 0.9 },
     accentHover={ 0.1, 0.32, 0.55 },
