@@ -384,6 +384,7 @@ local function ApplyRate(rate, silent)
     rate = ClampRate(tonumber(rate) or DEFAULT_RATE)
     SendXPCommand(rate)
     XPRateControlDB.lastRate = rate
+    lastAppliedRate = rate
     
     if XPRateSliderWidget then
         XPRateSliderWidget:SetValue(rate)
@@ -876,16 +877,18 @@ local function EvaluateAutomation(silent, reason)
 
     if targetRate then
         local rateChanged = (lastAppliedRate == nil or math.abs(targetRate - lastAppliedRate) > 0.005 or activeMode ~= lastAppliedMode)
-        lastAppliedRate = targetRate
-        lastAppliedMode = activeMode
+        if rateChanged then
+            lastAppliedRate = targetRate
+            lastAppliedMode = activeMode
 
-        ApplyRate(targetRate, silent)
+            ApplyRate(targetRate, silent)
 
-        if not silent and rateChanged then
-            FlashMinimapButton(targetRate)
-            local causeMsg = reason and (" [" .. reason .. "]") or ""
-            PrintMessage("|cff00ff00Auto-Switched|r -> " .. FormatRate(targetRate) .. "x via |cff00ccff" .. activeMode .. "|r" .. causeMsg)
-            ShowToast(string.format("Auto (%s) -> %sx", activeMode, FormatRate(targetRate)), false)
+            if not silent then
+                FlashMinimapButton(targetRate)
+                local causeMsg = reason and (" [" .. reason .. "]") or ""
+                PrintMessage("|cff00ff00Auto-Switched|r -> " .. FormatRate(targetRate) .. "x via |cff00ccff" .. activeMode .. "|r" .. causeMsg)
+                ShowToast(string.format("Auto (%s) -> %sx", activeMode, FormatRate(targetRate)), false)
+            end
         end
     end
 
