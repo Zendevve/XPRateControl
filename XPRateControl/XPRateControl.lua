@@ -761,6 +761,7 @@ local function SelectAutomationSubTab(tabIndex)
     else
         AutoRestedSubFrame:Hide()
         AutoGroupSubFrame:Show()
+        if UpdatePartyButtonsUI then UpdatePartyButtonsUI() end
     end
 end
 
@@ -1126,6 +1127,25 @@ groupRatesLabel:SetPoint("TOPLEFT", AutoGroupSubFrame, "TOPLEFT", 12, -72)
 groupRatesLabel:SetText("Select Party Size to Configure:")
 groupRatesLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
 
+function UpdatePartyButtonsUI()
+    local currentGroupSize = GetCurrentGroupSize()
+    for i, btn in ipairs(partyButtons) do
+        if i == groupSelectedSize then
+            btn:SetBackdropColor(CLR.accentBg[1], CLR.accentBg[2], CLR.accentBg[3], 0.95)
+            btn:SetBackdropBorderColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3], 0.95)
+            btn.text:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+        elseif (math.min(currentGroupSize, 5) == i) and XPRateControlDB and XPRateControlDB.autoGroup then
+            btn:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.8)
+            btn:SetBackdropBorderColor(CLR.green[1], CLR.green[2], CLR.green[3], 0.9)
+            btn.text:SetTextColor(CLR.green[1], CLR.green[2], CLR.green[3])
+        else
+            btn:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.8)
+            btn:SetBackdropBorderColor(CLR.btnEdge[1], CLR.btnEdge[2], CLR.btnEdge[3], 0.6)
+            btn.text:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+        end
+    end
+end
+
 for i = 1, 5 do
     local btn = CreateFrame("Button", nil, AutoGroupSubFrame)
     btn:SetSize(54, 20)
@@ -1137,19 +1157,34 @@ for i = 1, 5 do
         tile = true, tileSize = 8, edgeSize = 8,
         insets = { left = 1, right = 1, top = 1, bottom = 1 }
     })
+    btn:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.8)
+    btn:SetBackdropBorderColor(CLR.btnEdge[1], CLR.btnEdge[2], CLR.btnEdge[3], 0.6)
 
     local text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     text:SetPoint("CENTER")
     text:SetText(partyLabels[i])
+    text:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
     btn.text = text
 
     btn:SetScript("OnClick", function()
         groupSelectedSize = i
+        UpdatePartyButtonsUI()
         if updateGroupRow then updateGroupRow() end
+    end)
+
+    btn:SetScript("OnEnter", function(self)
+        if i ~= groupSelectedSize then
+            self:SetBackdropColor(CLR.btnHover[1], CLR.btnHover[2], CLR.btnHover[3], 1)
+        end
+    end)
+    btn:SetScript("OnLeave", function(self)
+        UpdatePartyButtonsUI()
     end)
 
     partyButtons[i] = btn
 end
+
+UpdatePartyButtonsUI()
 
 updateGroupRow = CreateRestedPresetRow(AutoGroupSubFrame, "Target Rate for Party Size", -114,
     function(val)
@@ -1158,6 +1193,7 @@ updateGroupRow = CreateRestedPresetRow(AutoGroupSubFrame, "Target Rate for Party
             ShowToast(string.format("%s Rate set to %sx [OK]", partyLabels[groupSelectedSize], FormatRate(val)), false)
             lastGroupSize = nil
             CheckGroupXP(false)
+            UpdatePartyButtonsUI()
             if updateGroupRow then updateGroupRow() end
         end
     end,
