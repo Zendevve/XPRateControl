@@ -115,7 +115,7 @@ end
 -- Main UI Frame
 ------------------------------------------------------------
 local frame = CreateFrame("Frame", "XPRateControlFrame", UIParent)
-frame:SetSize(320, 300)
+frame:SetSize(320, 335)
 frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 frame:SetFrameStrata("HIGH")
 frame:SetMovable(true)
@@ -215,16 +215,16 @@ end)
 -- Tab Layout Containers
 ------------------------------------------------------------
 local RatesTabFrame = CreateFrame("Frame", nil, frame)
-RatesTabFrame:SetSize(308, 196)
+RatesTabFrame:SetSize(308, 230)
 RatesTabFrame:SetPoint("TOP", frame, "TOP", 0, -68)
 
 local AutomationTabFrame = CreateFrame("Frame", nil, frame)
-AutomationTabFrame:SetSize(308, 196)
+AutomationTabFrame:SetSize(308, 230)
 AutomationTabFrame:SetPoint("TOP", frame, "TOP", 0, -68)
 AutomationTabFrame:Hide()
 
 local BuffsTabFrame = CreateFrame("Frame", nil, frame)
-BuffsTabFrame:SetSize(308, 196)
+BuffsTabFrame:SetSize(308, 230)
 BuffsTabFrame:SetPoint("TOP", frame, "TOP", 0, -68)
 BuffsTabFrame:Hide()
 
@@ -736,19 +736,39 @@ local automationStatusText = AutomationTabFrame:CreateFontString(nil, "OVERLAY",
 automationStatusText:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 12, -56)
 automationStatusText:SetText("Status: Inactive")
 
+local function GetCurrentGroupSize()
+    local numRaid = GetNumRaidMembers()
+    if numRaid and numRaid > 0 then
+        return numRaid
+    end
+    local numParty = GetNumPartyMembers()
+    if numParty and numParty > 0 then
+        return numParty + 1
+    end
+    return 1
+end
+
 local function UpdateAutomationStatus()
     local db = XPRateControlDB
     if not db then return end
     
-    if not db.autoRested then
-        automationStatusText:SetText("Status: |cffcc3535Inactive|r")
-        return
-    end
+    local gSize = GetCurrentGroupSize()
     
-    local isRested = (GetXPExhaustion() and GetXPExhaustion() > 0) or false
-    local currentRate = isRested and db.restedRate or db.normalRate
-    local stateStr = isRested and "|cff20cc50Rested|r" or "|cffffffffNormal|r"
-    automationStatusText:SetText(string.format("Status: Active (%s) -> %sx", stateStr, FormatRate(currentRate)))
+    if db.autoGroup and (gSize > 1 or not db.autoRested) then
+        local mappedSize = math.min(gSize, 5)
+        local targetRate = (db.groupRates and db.groupRates[mappedSize]) or 1.00
+        local stateText = (gSize >= 5) and "5P Group" or ((gSize > 1) and (gSize .. "P Group") or "Solo")
+        automationStatusText:SetText(string.format("Status: Active (%s) -> %sx", stateText, FormatRate(targetRate)))
+        automationStatusText:SetTextColor(0.2, 0.9, 0.4)
+    elseif db.autoRested then
+        local isRested = (GetXPExhaustion() and GetXPExhaustion() > 0) or false
+        local currentRate = isRested and db.restedRate or db.normalRate
+        local stateStr = isRested and "|cff20cc50Rested|r" or "|cffffffffNormal|r"
+        automationStatusText:SetText(string.format("Status: Active (%s) -> %sx", stateStr, FormatRate(currentRate)))
+        automationStatusText:SetTextColor(0.2, 0.9, 0.4)
+    else
+        automationStatusText:SetText("Status: |cffcc3535Inactive|r")
+    end
 end
 
 -- Rested XP switching logic
@@ -757,6 +777,7 @@ local lastRestedState = nil
 local function CheckRestedXP(silent)
     local db = XPRateControlDB
     if not db or not db.autoRested then return end
+    if db.autoGroup and GetCurrentGroupSize() > 1 then return end -- Group auto-scaling takes precedence in party
 
     local isRested = (GetXPExhaustion() and GetXPExhaustion() > 0) or false
     if lastRestedState == nil or isRested ~= lastRestedState then
@@ -768,6 +789,29 @@ local function CheckRestedXP(silent)
             FlashMinimapButton(targetRate)
             local stateStr = isRested and "|cff00ccffRested|r" or "|cffffffffNormal|r"
             PrintMessage("Rested state changed to " .. stateStr .. ". Auto-switched XP rate to " .. FormatRate(targetRate) .. "x")
+        end
+    end
+    UpdateAutomationStatus()
+end
+
+-- Group / Party XP switching logic
+local lastGroupSize = nil
+
+local function CheckGroupXP(silent)
+    local db = XPRateControlDB
+    if not db or not db.autoGroup then return end
+
+    local gSize = GetCurrentGroupSize()
+    local mappedSize = math.min(gSize, 5)
+    local targetRate = (db.groupRates and db.groupRates[mappedSize]) or 1.00
+
+    if lastGroupSize == nil or gSize ~= lastGroupSize then
+        lastGroupSize = gSize
+        ApplyRate(targetRate, silent)
+        if not silent then
+            FlashMinimapButton(targetRate)
+            local sizeLabel = (gSize > 1) and (gSize .. " Players") or "Solo"
+            PrintMessage("Group changed (" .. sizeLabel .. "). Auto-switched XP rate to " .. FormatRate(targetRate) .. "x")
         end
     end
     UpdateAutomationStatus()
@@ -920,7 +964,7 @@ local function CreateRestedPresetRow(parent, labelText, yOfs, onClickCallback, g
     return UpdateRowUI
 end
 
-local updateRestedRow = CreateRestedPresetRow(AutomationTabFrame, "Rested", -78, 
+local updateRestedRow = CreateRestedPresetRow(AutomationTabFrame, "Rested", -74, 
     function(val)
         XPRateControlDB.restedRate = ClampRate(val)
         ShowToast("Rested Rate updated [OK]", false)
@@ -932,7 +976,7 @@ local updateRestedRow = CreateRestedPresetRow(AutomationTabFrame, "Rested", -78,
     end
 )
 
-local updateNormalRow = CreateRestedPresetRow(AutomationTabFrame, "Normal", -134, 
+local updateNormalRow = CreateRestedPresetRow(AutomationTabFrame, "Normal", -114, 
     function(val)
         XPRateControlDB.normalRate = ClampRate(val)
         ShowToast("Normal Rate updated [OK]", false)
@@ -949,6 +993,238 @@ restedBackendFrame:RegisterEvent("UPDATE_EXHAUSTION")
 restedBackendFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 restedBackendFrame:SetScript("OnEvent", function(self, event)
     CheckRestedXP(event == "PLAYER_ENTERING_WORLD")
+end)
+
+------------------------------------------------------------
+-- Section 2: Party Auto Scaling Controls
+------------------------------------------------------------
+local groupSelectedSize = 1
+local updateGroupRow = nil
+
+local groupCheckbox = CreateFrame("CheckButton", "XPRateGroupCheckbox", AutomationTabFrame, "UICheckButtonTemplate")
+groupCheckbox:SetSize(22, 22)
+groupCheckbox:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 12, -145)
+
+local groupCheckLabel = AutomationTabFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+groupCheckLabel:SetPoint("LEFT", groupCheckbox, "RIGHT", 6, 0)
+groupCheckLabel:SetText("Auto-scale rates by party size")
+groupCheckLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+
+groupCheckbox:SetScript("OnClick", function(self)
+    local enabled = self:GetChecked() and true or false
+    XPRateControlDB.autoGroup = enabled
+    PrintMessage("Party XP auto-scaling " .. (enabled and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
+    
+    if enabled then
+        lastGroupSize = nil
+        CheckGroupXP(false)
+    else
+        UpdateAutomationStatus()
+    end
+    ShowToast(enabled and "Party Scaling Enabled [OK]" or "Party Scaling Disabled [OK]", false)
+end)
+
+groupCheckbox:SetScript("OnEnter", function(self)
+    ShowTooltip(self, "Automatically adjust XP rate based on current party size (1P-5P).")
+end)
+groupCheckbox:SetScript("OnLeave", HideTooltip)
+
+-- Party size preset row generator
+local function CreateGroupPresetRow(parent, yOfs)
+    local label = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    label:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, yOfs)
+    label:SetText("Party Size Rates (Select to edit):")
+    label:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+
+    local partyLabels = { "1P Solo", "2P", "3P", "4P", "5P" }
+    local partyButtons = {}
+
+    for i = 1, 5 do
+        local btn = CreateFrame("Button", nil, parent)
+        btn:SetSize(54, 18)
+        btn:SetPoint("TOPLEFT", parent, "TOPLEFT", 12 + (i-1)*56, yOfs - 16)
+
+        btn:SetBackdrop({
+            bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+            tile = true, tileSize = 8, edgeSize = 8,
+            insets = { left = 1, right = 1, top = 1, bottom = 1 }
+        })
+        btn:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.8)
+
+        local text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        text:SetPoint("CENTER")
+        text:SetText(partyLabels[i])
+        btn.text = text
+
+        btn:SetScript("OnClick", function()
+            groupSelectedSize = i
+            updateGroupRow()
+        end)
+
+        btn:SetScript("OnEnter", function(self)
+            local rate = XPRateControlDB and XPRateControlDB.groupRates and XPRateControlDB.groupRates[i] or 1.0
+            ShowTooltip(self, string.format("Configure rate for %s (%sx)", partyLabels[i], FormatRate(rate)))
+        end)
+        btn:SetScript("OnLeave", HideTooltip)
+
+        partyButtons[i] = btn
+    end
+
+    local rates = { 0.0, 0.5, 1.0, 1.25, 1.5, 1.75, 2.0 }
+    local rateButtons = {}
+
+    for i, r in ipairs(rates) do
+        local btn = CreateFrame("Button", nil, parent)
+        btn:SetSize(31, 18)
+        btn:SetPoint("TOPLEFT", parent, "TOPLEFT", 12 + (i-1)*34, yOfs - 38)
+
+        btn:SetBackdrop({
+            bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+            tile = true, tileSize = 8, edgeSize = 8,
+            insets = { left = 1, right = 1, top = 1, bottom = 1 }
+        })
+        btn:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.8)
+
+        local text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        text:SetPoint("CENTER")
+        text:SetText(FormatRate(r) .. "x")
+        btn.text = text
+
+        btn:SetScript("OnClick", function()
+            if XPRateControlDB and XPRateControlDB.groupRates then
+                XPRateControlDB.groupRates[groupSelectedSize] = ClampRate(r)
+                ShowToast(string.format("%s Rate set to %sx [OK]", partyLabels[groupSelectedSize], FormatRate(r)), false)
+                lastGroupSize = nil
+                CheckGroupXP(false)
+                updateGroupRow()
+            end
+        end)
+
+        btn:SetScript("OnEnter", function(self)
+            self:SetBackdropColor(CLR.btnHover[1], CLR.btnHover[2], CLR.btnHover[3], 1)
+        end)
+        btn:SetScript("OnLeave", function(self)
+            self:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.8)
+        end)
+
+        rateButtons[r] = btn
+    end
+
+    local edit = CreateFrame("EditBox", nil, parent)
+    edit:SetSize(38, 18)
+    edit:SetPoint("TOPLEFT", parent, "TOPLEFT", 12 + 7*34, yOfs - 38)
+    edit:SetAutoFocus(false)
+    edit:SetFontObject("GameFontHighlightSmall")
+    edit:SetJustifyH("CENTER")
+    edit:SetMaxLetters(4)
+    edit:SetBackdrop({
+        bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 8, edgeSize = 8,
+        insets = { left = 1, right = 1, top = 1, bottom = 1 }
+    })
+    edit:SetBackdropColor(0.02, 0.03, 0.06, 0.85)
+    edit:SetBackdropBorderColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.6)
+
+    local function UpdateRowUI()
+        local currentGroupSize = GetCurrentGroupSize()
+        local currentGroupRate = XPRateControlDB and XPRateControlDB.groupRates and XPRateControlDB.groupRates[groupSelectedSize] or 1.0
+
+        for i, btn in ipairs(partyButtons) do
+            local rateVal = XPRateControlDB and XPRateControlDB.groupRates and XPRateControlDB.groupRates[i] or 1.0
+            btn.text:SetText(partyLabels[i] .. ":" .. FormatRate(rateVal) .. "x")
+            
+            if i == groupSelectedSize then
+                btn:SetBackdropBorderColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3], 0.95)
+                btn.text:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+            elseif (math.min(currentGroupSize, 5) == i) and XPRateControlDB and XPRateControlDB.autoGroup then
+                btn:SetBackdropBorderColor(CLR.green[1], CLR.green[2], CLR.green[3], 0.9)
+                btn.text:SetTextColor(CLR.green[1], CLR.green[2], CLR.green[3])
+            else
+                btn:SetBackdropBorderColor(CLR.btnEdge[1], CLR.btnEdge[2], CLR.btnEdge[3], 0.6)
+                btn.text:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+            end
+        end
+
+        local matched = false
+        for r, btn in pairs(rateButtons) do
+            if math.abs(currentGroupRate - r) < 0.005 then
+                local rc = RateColor(r)
+                btn:SetBackdropBorderColor(rc[1], rc[2], rc[3], 0.9)
+                btn.text:SetTextColor(rc[1], rc[2], rc[3])
+                matched = true
+            else
+                btn:SetBackdropBorderColor(CLR.btnEdge[1], CLR.btnEdge[2], CLR.btnEdge[3], 0.6)
+                btn.text:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+            end
+        end
+
+        if not edit:HasFocus() then
+            edit:SetText(FormatRate(currentGroupRate))
+            if matched then
+                edit:SetBackdropBorderColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.6)
+                edit:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+            else
+                local rc = RateColor(currentGroupRate)
+                edit:SetBackdropBorderColor(rc[1], rc[2], rc[3], 0.9)
+                edit:SetTextColor(rc[1], rc[2], rc[3])
+            end
+        end
+    end
+
+    edit:SetScript("OnEditFocusGained", function(self)
+        self:SetBackdropBorderColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3], 0.9)
+    end)
+
+    edit:SetScript("OnEscapePressed", function(self)
+        self.reverting = true
+        self:SetText(FormatRate(XPRateControlDB.groupRates[groupSelectedSize] or 1.0))
+        self:ClearFocus()
+    end)
+
+    edit:SetScript("OnEnterPressed", function(self)
+        local val = tonumber(self:GetText())
+        if val and val >= RATE_MIN and val <= RATE_MAX then
+            XPRateControlDB.groupRates[groupSelectedSize] = ClampRate(val)
+            self:ClearFocus()
+            lastGroupSize = nil
+            CheckGroupXP(false)
+            UpdateRowUI()
+        else
+            self:SetText(FormatRate(XPRateControlDB.groupRates[groupSelectedSize] or 1.0))
+            self:ClearFocus()
+        end
+    end)
+
+    edit:SetScript("OnEditFocusLost", function(self)
+        self:SetBackdropBorderColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.6)
+        if self.reverting then
+            self.reverting = nil
+            UpdateRowUI()
+            return
+        end
+        UpdateRowUI()
+    end)
+
+    edit:SetScript("OnEnter", function(self)
+        ShowTooltip(self, "Type custom rate for selected party size and press Enter")
+    end)
+    edit:SetScript("OnLeave", HideTooltip)
+
+    return UpdateRowUI
+end
+
+updateGroupRow = CreateGroupPresetRow(AutomationTabFrame, -170)
+
+local groupBackendFrame = CreateFrame("Frame")
+groupBackendFrame:RegisterEvent("PARTY_MEMBERS_CHANGED")
+groupBackendFrame:RegisterEvent("RAID_ROSTER_UPDATE")
+groupBackendFrame:RegisterEvent("PARTY_LEADER_CHANGED")
+groupBackendFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+groupBackendFrame:SetScript("OnEvent", function(self, event)
+    CheckGroupXP(event == "PLAYER_ENTERING_WORLD")
 end)
 
 ------------------------------------------------------------
@@ -1302,6 +1578,16 @@ initFrame:SetScript("OnEvent", function(self, event, loadedAddon)
         if db.autoRested  == nil then db.autoRested  = false end
         if db.restedRate  == nil then db.restedRate  = 2.0 end
         if db.normalRate  == nil then db.normalRate  = 1.0 end
+        if db.autoGroup   == nil then db.autoGroup   = false end
+        if db.groupRates  == nil then
+            db.groupRates = {
+                [1] = 1.00,
+                [2] = 1.25,
+                [3] = 1.50,
+                [4] = 1.75,
+                [5] = 2.00,
+            }
+        end
         if db.firstRun    == nil then db.firstRun    = true end
 
         -- Position restoration
@@ -1315,9 +1601,11 @@ initFrame:SetScript("OnEvent", function(self, event, loadedAddon)
         UpdateUIFromValue(db.lastRate)
         UpdateJJUI(db.jjEnabled)
         restedCheckbox:SetChecked(db.autoRested)
+        groupCheckbox:SetChecked(db.autoGroup)
         
         updateRestedRow()
         updateNormalRow()
+        if updateGroupRow then updateGroupRow() end
         UpdateAutomationStatus()
         UpdateMinimapButtonPosition()
 
@@ -1328,6 +1616,9 @@ initFrame:SetScript("OnEvent", function(self, event, loadedAddon)
 
         if db.autoRested then
             CheckRestedXP(true)
+        end
+        if db.autoGroup then
+            CheckGroupXP(true)
         end
 
         if db.showMinimap then
@@ -1381,10 +1672,24 @@ SlashCmdList["XPRATECONTROL"] = function(msg)
         return
     end
 
+    if msg:lower() == "group" then
+        XPRateControlDB.autoGroup = not XPRateControlDB.autoGroup
+        groupCheckbox:SetChecked(XPRateControlDB.autoGroup)
+        PrintMessage("Party XP auto-scaling " .. (XPRateControlDB.autoGroup and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
+        if XPRateControlDB.autoGroup then
+            lastGroupSize = nil
+            CheckGroupXP(false)
+        else
+            UpdateAutomationStatus()
+        end
+        return
+    end
+
     if msg:lower() == "help" then
         PrintMessage("Commands:")
         PrintMessage("  |cff00ff00/xp|r - Toggle panel")
         PrintMessage("  |cff00ff00/xp <0-2>|r - Set XP rate (e.g. /xp 1.25)")
+        PrintMessage("  |cff00ff00/xp group|r - Toggle party auto-scaling")
         PrintMessage("  |cff00ff00/xp minimap|r - Toggle minimap button")
         return
     end
