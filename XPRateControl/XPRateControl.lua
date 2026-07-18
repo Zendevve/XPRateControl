@@ -719,22 +719,116 @@ for i, p in ipairs(presets) do
 end
 
 ------------------------------------------------------------
--- Tab 2: Automation (Auto Rested) UI Creation
+-- Tab 2: Automation (Auto Rested & Party Scaling) UI Creation
 ------------------------------------------------------------
-CreateSectionHeader(AutomationTabFrame, "AUTO RESTED XP", "Interface\\AddOns\\XPRateControl\\Textures\\Icon_Automation", CLR.green)
+local autoSubTabSelected = 1 -- 1 = Rested XP, 2 = Party Scaling
 
-local restedCheckbox = CreateFrame("CheckButton", "XPRateRestedCheckbox", AutomationTabFrame, "UICheckButtonTemplate")
+-- Sub-Nav Segmented Buttons Container
+local autoSubNavFrame = CreateFrame("Frame", nil, AutomationTabFrame)
+autoSubNavFrame:SetSize(308, 24)
+autoSubNavFrame:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 0, 0)
+
+local autoSubNavBtns = {}
+local autoSubNavNames = { "Rested XP", "Party Scaling" }
+
+local AutoRestedSubFrame = CreateFrame("Frame", nil, AutomationTabFrame)
+AutoRestedSubFrame:SetSize(308, 172)
+AutoRestedSubFrame:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 0, -26)
+
+local AutoGroupSubFrame = CreateFrame("Frame", nil, AutomationTabFrame)
+AutoGroupSubFrame:SetSize(308, 172)
+AutoGroupSubFrame:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 0, -26)
+AutoGroupSubFrame:Hide()
+
+local function SelectAutomationSubTab(tabIndex)
+    autoSubTabSelected = tabIndex
+    for i, btn in ipairs(autoSubNavBtns) do
+        if i == tabIndex then
+            btn:SetBackdropColor(CLR.btnActive[1], CLR.btnActive[2], CLR.btnActive[3], 0.95)
+            btn:SetBackdropBorderColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3], 0.95)
+            btn.text:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+        else
+            btn:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.6)
+            btn:SetBackdropBorderColor(CLR.btnEdge[1], CLR.btnEdge[2], CLR.btnEdge[3], 0.4)
+            btn.text:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+        end
+    end
+
+    if tabIndex == 1 then
+        AutoRestedSubFrame:Show()
+        AutoGroupSubFrame:Hide()
+    else
+        AutoRestedSubFrame:Hide()
+        AutoGroupSubFrame:Show()
+    end
+end
+
+for i = 1, 2 do
+    local btn = CreateFrame("Button", nil, autoSubNavFrame)
+    btn:SetSize(148, 22)
+    btn:SetPoint("TOPLEFT", autoSubNavFrame, "TOPLEFT", 4 + (i-1)*152, 0)
+
+    btn:SetBackdrop({
+        bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 8, edgeSize = 8,
+        insets = { left = 1, right = 1, top = 1, bottom = 1 }
+    })
+
+    local text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    text:SetPoint("CENTER")
+    text:SetText(autoSubNavNames[i])
+    btn.text = text
+
+    btn:SetScript("OnClick", function()
+        SelectAutomationSubTab(i)
+    end)
+
+    btn:SetScript("OnEnter", function(self)
+        if i ~= autoSubTabSelected then
+            self:SetBackdropColor(CLR.btnHover[1], CLR.btnHover[2], CLR.btnHover[3], 0.9)
+        end
+    end)
+    btn:SetScript("OnLeave", function(self)
+        if i ~= autoSubTabSelected then
+            self:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.6)
+        end
+    end)
+
+    autoSubNavBtns[i] = btn
+end
+
+-- Controls in AutoRestedSubFrame
+CreateSectionHeader(AutoRestedSubFrame, "AUTO RESTED XP", "Interface\\AddOns\\XPRateControl\\Textures\\Icon_Automation", CLR.green)
+
+local restedCheckbox = CreateFrame("CheckButton", "XPRateRestedCheckbox", AutoRestedSubFrame, "UICheckButtonTemplate")
 restedCheckbox:SetSize(22, 22)
-restedCheckbox:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 12, -30)
+restedCheckbox:SetPoint("TOPLEFT", AutoRestedSubFrame, "TOPLEFT", 12, -26)
 
-local restedCheckLabel = AutomationTabFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+local restedCheckLabel = AutoRestedSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 restedCheckLabel:SetPoint("LEFT", restedCheckbox, "RIGHT", 6, 0)
-restedCheckLabel:SetText("Auto-switch rates")
+restedCheckLabel:SetText("Auto-switch on Rested XP")
 restedCheckLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
 
-local automationStatusText = AutomationTabFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-automationStatusText:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 12, -56)
+local automationStatusText = AutoRestedSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+automationStatusText:SetPoint("TOPLEFT", AutoRestedSubFrame, "TOPLEFT", 12, -52)
 automationStatusText:SetText("Status: Inactive")
+
+-- Controls in AutoGroupSubFrame
+CreateSectionHeader(AutoGroupSubFrame, "PARTY AUTO SCALING", "Interface\\AddOns\\XPRateControl\\Textures\\Icon_Automation", CLR.cyan)
+
+local groupCheckbox = CreateFrame("CheckButton", "XPRateGroupCheckbox", AutoGroupSubFrame, "UICheckButtonTemplate")
+groupCheckbox:SetSize(22, 22)
+groupCheckbox:SetPoint("TOPLEFT", AutoGroupSubFrame, "TOPLEFT", 12, -26)
+
+local groupCheckLabel = AutoGroupSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+groupCheckLabel:SetPoint("LEFT", groupCheckbox, "RIGHT", 6, 0)
+groupCheckLabel:SetText("Auto-scale rates by party size")
+groupCheckLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+
+local groupStatusText = AutoGroupSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+groupStatusText:SetPoint("TOPLEFT", AutoGroupSubFrame, "TOPLEFT", 12, -52)
+groupStatusText:SetText("Status: Inactive")
 
 local function GetCurrentGroupSize()
     local numRaid = GetNumRaidMembers()
@@ -753,14 +847,8 @@ local function UpdateAutomationStatus()
     if not db then return end
     
     local gSize = GetCurrentGroupSize()
-    
-    if db.autoGroup and (gSize > 1 or not db.autoRested) then
-        local mappedSize = math.min(gSize, 5)
-        local targetRate = (db.groupRates and db.groupRates[mappedSize]) or 1.00
-        local stateText = (gSize >= 5) and "5P Group" or ((gSize > 1) and (gSize .. "P Group") or "Solo")
-        automationStatusText:SetText(string.format("Status: Active (%s) -> %sx", stateText, FormatRate(targetRate)))
-        automationStatusText:SetTextColor(0.2, 0.9, 0.4)
-    elseif db.autoRested then
+
+    if db.autoRested then
         local isRested = (GetXPExhaustion() and GetXPExhaustion() > 0) or false
         local currentRate = isRested and db.restedRate or db.normalRate
         local stateStr = isRested and "|cff20cc50Rested|r" or "|cffffffffNormal|r"
@@ -768,6 +856,18 @@ local function UpdateAutomationStatus()
         automationStatusText:SetTextColor(0.2, 0.9, 0.4)
     else
         automationStatusText:SetText("Status: |cffcc3535Inactive|r")
+        automationStatusText:SetTextColor(0.8, 0.2, 0.2)
+    end
+
+    if db.autoGroup then
+        local mappedSize = math.min(gSize, 5)
+        local targetRate = (db.groupRates and db.groupRates[mappedSize]) or 1.00
+        local stateText = (gSize >= 5) and "5P Group" or ((gSize > 1) and (gSize .. "P Group") or "Solo")
+        groupStatusText:SetText(string.format("Status: Active (%s) -> %sx", stateText, FormatRate(targetRate)))
+        groupStatusText:SetTextColor(0.2, 0.9, 0.4)
+    else
+        groupStatusText:SetText("Status: |cffcc3535Inactive|r")
+        groupStatusText:SetTextColor(0.8, 0.2, 0.2)
     end
 end
 
@@ -777,7 +877,7 @@ local lastRestedState = nil
 local function CheckRestedXP(silent)
     local db = XPRateControlDB
     if not db or not db.autoRested then return end
-    if db.autoGroup and GetCurrentGroupSize() > 1 then return end -- Group auto-scaling takes precedence in party
+    if db.autoGroup and GetCurrentGroupSize() > 1 then return end
 
     local isRested = (GetXPExhaustion() and GetXPExhaustion() > 0) or false
     if lastRestedState == nil or isRested ~= lastRestedState then
@@ -836,7 +936,7 @@ restedCheckbox:SetScript("OnEnter", function(self)
 end)
 restedCheckbox:SetScript("OnLeave", HideTooltip)
 
--- Rested presets row generator helper
+-- Preset row generator helper
 local function CreateRestedPresetRow(parent, labelText, yOfs, onClickCallback, getValCallback)
     local label = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     label:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, yOfs)
@@ -964,7 +1064,7 @@ local function CreateRestedPresetRow(parent, labelText, yOfs, onClickCallback, g
     return UpdateRowUI
 end
 
-local updateRestedRow = CreateRestedPresetRow(AutomationTabFrame, "Rested", -74, 
+local updateRestedRow = CreateRestedPresetRow(AutoRestedSubFrame, "Rested Rate", -72, 
     function(val)
         XPRateControlDB.restedRate = ClampRate(val)
         ShowToast("Rested Rate updated [OK]", false)
@@ -976,7 +1076,7 @@ local updateRestedRow = CreateRestedPresetRow(AutomationTabFrame, "Rested", -74,
     end
 )
 
-local updateNormalRow = CreateRestedPresetRow(AutomationTabFrame, "Normal", -114, 
+local updateNormalRow = CreateRestedPresetRow(AutoRestedSubFrame, "Normal Rate", -114, 
     function(val)
         XPRateControlDB.normalRate = ClampRate(val)
         ShowToast("Normal Rate updated [OK]", false)
@@ -995,21 +1095,7 @@ restedBackendFrame:SetScript("OnEvent", function(self, event)
     CheckRestedXP(event == "PLAYER_ENTERING_WORLD")
 end)
 
-------------------------------------------------------------
--- Section 2: Party Auto Scaling Controls
-------------------------------------------------------------
-local groupSelectedSize = 1
-local updateGroupRow = nil
-
-local groupCheckbox = CreateFrame("CheckButton", "XPRateGroupCheckbox", AutomationTabFrame, "UICheckButtonTemplate")
-groupCheckbox:SetSize(22, 22)
-groupCheckbox:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 12, -145)
-
-local groupCheckLabel = AutomationTabFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-groupCheckLabel:SetPoint("LEFT", groupCheckbox, "RIGHT", 6, 0)
-groupCheckLabel:SetText("Auto-scale rates by party size")
-groupCheckLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
-
+-- Controls in AutoGroupSubFrame
 groupCheckbox:SetScript("OnClick", function(self)
     local enabled = self:GetChecked() and true or false
     XPRateControlDB.autoGroup = enabled
@@ -1029,194 +1115,55 @@ groupCheckbox:SetScript("OnEnter", function(self)
 end)
 groupCheckbox:SetScript("OnLeave", HideTooltip)
 
--- Party size preset row generator
-local function CreateGroupPresetRow(parent, yOfs)
-    local label = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    label:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, yOfs)
-    label:SetText("Party Size Rates (Select to edit):")
-    label:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+local groupSelectedSize = 1
+local partyLabels = { "1P Solo", "2P", "3P", "4P", "5P" }
+local partyButtons = {}
+local updateGroupRow = nil
 
-    local partyLabels = { "1P Solo", "2P", "3P", "4P", "5P" }
-    local partyButtons = {}
+local groupRatesLabel = AutoGroupSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+groupRatesLabel:SetPoint("TOPLEFT", AutoGroupSubFrame, "TOPLEFT", 12, -72)
+groupRatesLabel:SetText("Select Party Size to Configure:")
+groupRatesLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
 
-    for i = 1, 5 do
-        local btn = CreateFrame("Button", nil, parent)
-        btn:SetSize(54, 18)
-        btn:SetPoint("TOPLEFT", parent, "TOPLEFT", 12 + (i-1)*56, yOfs - 16)
+for i = 1, 5 do
+    local btn = CreateFrame("Button", nil, AutoGroupSubFrame)
+    btn:SetSize(54, 20)
+    btn:SetPoint("TOPLEFT", AutoGroupSubFrame, "TOPLEFT", 12 + (i-1)*56, -88)
 
-        btn:SetBackdrop({
-            bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
-            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-            tile = true, tileSize = 8, edgeSize = 8,
-            insets = { left = 1, right = 1, top = 1, bottom = 1 }
-        })
-        btn:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.8)
-
-        local text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        text:SetPoint("CENTER")
-        text:SetText(partyLabels[i])
-        btn.text = text
-
-        btn:SetScript("OnClick", function()
-            groupSelectedSize = i
-            updateGroupRow()
-        end)
-
-        btn:SetScript("OnEnter", function(self)
-            local rate = XPRateControlDB and XPRateControlDB.groupRates and XPRateControlDB.groupRates[i] or 1.0
-            ShowTooltip(self, string.format("Configure rate for %s (%sx)", partyLabels[i], FormatRate(rate)))
-        end)
-        btn:SetScript("OnLeave", HideTooltip)
-
-        partyButtons[i] = btn
-    end
-
-    local rates = { 0.0, 0.5, 1.0, 1.25, 1.5, 1.75, 2.0 }
-    local rateButtons = {}
-
-    for i, r in ipairs(rates) do
-        local btn = CreateFrame("Button", nil, parent)
-        btn:SetSize(31, 18)
-        btn:SetPoint("TOPLEFT", parent, "TOPLEFT", 12 + (i-1)*34, yOfs - 38)
-
-        btn:SetBackdrop({
-            bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
-            edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-            tile = true, tileSize = 8, edgeSize = 8,
-            insets = { left = 1, right = 1, top = 1, bottom = 1 }
-        })
-        btn:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.8)
-
-        local text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        text:SetPoint("CENTER")
-        text:SetText(FormatRate(r) .. "x")
-        btn.text = text
-
-        btn:SetScript("OnClick", function()
-            if XPRateControlDB and XPRateControlDB.groupRates then
-                XPRateControlDB.groupRates[groupSelectedSize] = ClampRate(r)
-                ShowToast(string.format("%s Rate set to %sx [OK]", partyLabels[groupSelectedSize], FormatRate(r)), false)
-                lastGroupSize = nil
-                CheckGroupXP(false)
-                updateGroupRow()
-            end
-        end)
-
-        btn:SetScript("OnEnter", function(self)
-            self:SetBackdropColor(CLR.btnHover[1], CLR.btnHover[2], CLR.btnHover[3], 1)
-        end)
-        btn:SetScript("OnLeave", function(self)
-            self:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.8)
-        end)
-
-        rateButtons[r] = btn
-    end
-
-    local edit = CreateFrame("EditBox", nil, parent)
-    edit:SetSize(38, 18)
-    edit:SetPoint("TOPLEFT", parent, "TOPLEFT", 12 + 7*34, yOfs - 38)
-    edit:SetAutoFocus(false)
-    edit:SetFontObject("GameFontHighlightSmall")
-    edit:SetJustifyH("CENTER")
-    edit:SetMaxLetters(4)
-    edit:SetBackdrop({
+    btn:SetBackdrop({
         bgFile = "Interface\\ChatFrame\\ChatFrameBackground",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
         tile = true, tileSize = 8, edgeSize = 8,
         insets = { left = 1, right = 1, top = 1, bottom = 1 }
     })
-    edit:SetBackdropColor(0.02, 0.03, 0.06, 0.85)
-    edit:SetBackdropBorderColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.6)
 
-    local function UpdateRowUI()
-        local currentGroupSize = GetCurrentGroupSize()
-        local currentGroupRate = XPRateControlDB and XPRateControlDB.groupRates and XPRateControlDB.groupRates[groupSelectedSize] or 1.0
+    local text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    text:SetPoint("CENTER")
+    text:SetText(partyLabels[i])
+    btn.text = text
 
-        for i, btn in ipairs(partyButtons) do
-            local rateVal = XPRateControlDB and XPRateControlDB.groupRates and XPRateControlDB.groupRates[i] or 1.0
-            btn.text:SetText(partyLabels[i] .. ":" .. FormatRate(rateVal) .. "x")
-            
-            if i == groupSelectedSize then
-                btn:SetBackdropBorderColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3], 0.95)
-                btn.text:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
-            elseif (math.min(currentGroupSize, 5) == i) and XPRateControlDB and XPRateControlDB.autoGroup then
-                btn:SetBackdropBorderColor(CLR.green[1], CLR.green[2], CLR.green[3], 0.9)
-                btn.text:SetTextColor(CLR.green[1], CLR.green[2], CLR.green[3])
-            else
-                btn:SetBackdropBorderColor(CLR.btnEdge[1], CLR.btnEdge[2], CLR.btnEdge[3], 0.6)
-                btn.text:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
-            end
-        end
-
-        local matched = false
-        for r, btn in pairs(rateButtons) do
-            if math.abs(currentGroupRate - r) < 0.005 then
-                local rc = RateColor(r)
-                btn:SetBackdropBorderColor(rc[1], rc[2], rc[3], 0.9)
-                btn.text:SetTextColor(rc[1], rc[2], rc[3])
-                matched = true
-            else
-                btn:SetBackdropBorderColor(CLR.btnEdge[1], CLR.btnEdge[2], CLR.btnEdge[3], 0.6)
-                btn.text:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
-            end
-        end
-
-        if not edit:HasFocus() then
-            edit:SetText(FormatRate(currentGroupRate))
-            if matched then
-                edit:SetBackdropBorderColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.6)
-                edit:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
-            else
-                local rc = RateColor(currentGroupRate)
-                edit:SetBackdropBorderColor(rc[1], rc[2], rc[3], 0.9)
-                edit:SetTextColor(rc[1], rc[2], rc[3])
-            end
-        end
-    end
-
-    edit:SetScript("OnEditFocusGained", function(self)
-        self:SetBackdropBorderColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3], 0.9)
+    btn:SetScript("OnClick", function()
+        groupSelectedSize = i
+        if updateGroupRow then updateGroupRow() end
     end)
 
-    edit:SetScript("OnEscapePressed", function(self)
-        self.reverting = true
-        self:SetText(FormatRate(XPRateControlDB.groupRates[groupSelectedSize] or 1.0))
-        self:ClearFocus()
-    end)
-
-    edit:SetScript("OnEnterPressed", function(self)
-        local val = tonumber(self:GetText())
-        if val and val >= RATE_MIN and val <= RATE_MAX then
-            XPRateControlDB.groupRates[groupSelectedSize] = ClampRate(val)
-            self:ClearFocus()
-            lastGroupSize = nil
-            CheckGroupXP(false)
-            UpdateRowUI()
-        else
-            self:SetText(FormatRate(XPRateControlDB.groupRates[groupSelectedSize] or 1.0))
-            self:ClearFocus()
-        end
-    end)
-
-    edit:SetScript("OnEditFocusLost", function(self)
-        self:SetBackdropBorderColor(CLR.muted[1], CLR.muted[2], CLR.muted[3], 0.6)
-        if self.reverting then
-            self.reverting = nil
-            UpdateRowUI()
-            return
-        end
-        UpdateRowUI()
-    end)
-
-    edit:SetScript("OnEnter", function(self)
-        ShowTooltip(self, "Type custom rate for selected party size and press Enter")
-    end)
-    edit:SetScript("OnLeave", HideTooltip)
-
-    return UpdateRowUI
+    partyButtons[i] = btn
 end
 
-updateGroupRow = CreateGroupPresetRow(AutomationTabFrame, -170)
+updateGroupRow = CreateRestedPresetRow(AutoGroupSubFrame, "Target Rate for Party Size", -114,
+    function(val)
+        if XPRateControlDB and XPRateControlDB.groupRates then
+            XPRateControlDB.groupRates[groupSelectedSize] = ClampRate(val)
+            ShowToast(string.format("%s Rate set to %sx [OK]", partyLabels[groupSelectedSize], FormatRate(val)), false)
+            lastGroupSize = nil
+            CheckGroupXP(false)
+            if updateGroupRow then updateGroupRow() end
+        end
+    end,
+    function()
+        return XPRateControlDB and XPRateControlDB.groupRates and XPRateControlDB.groupRates[groupSelectedSize] or 1.0
+    end
+)
 
 local groupBackendFrame = CreateFrame("Frame")
 groupBackendFrame:RegisterEvent("PARTY_MEMBERS_CHANGED")
@@ -1226,6 +1173,8 @@ groupBackendFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 groupBackendFrame:SetScript("OnEvent", function(self, event)
     CheckGroupXP(event == "PLAYER_ENTERING_WORLD")
 end)
+
+SelectAutomationSubTab(1)
 
 ------------------------------------------------------------
 -- Tab 3: Buffs (Joyous Journeys) UI Creation
