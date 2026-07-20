@@ -14,7 +14,7 @@ local GetCurrentGroupSize     = XPRate.GetCurrentGroupSize
 
 local AutomationTabFrame = XPRate.AutomationTabFrame
 
-local autoSubTabSelected = 1 -- 1 = Rested XP, 2 = Party Scaling, 3 = Mob Difficulty
+local autoSubTabSelected = 1 -- 1 = Rested XP, 2 = Party Size, 3 = Mob Color
 
 -- Sub-Nav Segmented Buttons Container
 local autoSubNavFrame = CreateFrame("Frame", nil, AutomationTabFrame)
@@ -22,7 +22,7 @@ autoSubNavFrame:SetSize(308, 24)
 autoSubNavFrame:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 0, 0)
 
 local autoSubNavBtns = {}
-local autoSubNavNames = { "Rested XP", "Party Scaling", "Mob Difficulty" }
+local autoSubNavNames = { "Rested XP", "Party Size", "Mob Color" }
 
 local AutoRestedSubFrame = CreateFrame("Frame", nil, AutomationTabFrame)
 AutoRestedSubFrame:SetSize(308, 172)
@@ -294,7 +294,7 @@ mobCheckLabel:SetText("Auto-scale rates by mob color")
 mobCheckLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
 
 local mobStateValue = AutoMobSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-mobStateValue:SetPoint("TOPLEFT", AutoMobSubFrame, "TOPLEFT", 12, -48)
+mobStateValue:SetPoint("TOPLEFT", AutoMobSubFrame, "TOPLEFT", 12, -52)
 mobStateValue:SetText("Target: None / Non-Enemy")
 XPRate.mobStateValue = mobStateValue
 
@@ -311,35 +311,103 @@ mobCheckbox:SetScript("OnEnter", function(self)
 end)
 mobCheckbox:SetScript("OnLeave", HideTooltip)
 
-local mobRowUpdaters = {}
+local mobSelectedCategory = 1 -- 1=gray, 2=green, 3=yellow, 4=red
 local mobCategories = {
-  { key = "gray",   label = "Gray Mobs (Trivial)",   yOfs = -64 },
-  { key = "green",  label = "Green Mobs (Easy)",      yOfs = -92 },
-  { key = "yellow", label = "Yellow Mobs (Equal)",     yOfs = -120 },
-  { key = "red",    label = "Orange / Red (Hard)",     yOfs = -148 },
+  { key = "gray",   label = "Gray",       color = CLR.dim },
+  { key = "green",  label = "Green",      color = CLR.green },
+  { key = "yellow", label = "Yellow",     color = CLR.gold },
+  { key = "red",    label = "Orange/Red", color = CLR.red },
 }
+local mobButtons = {}
+local updateMobRow = nil
 
-for i, cat in ipairs(mobCategories) do
-  local updater = XPRate.CreateRestedPresetRow(AutoMobSubFrame, cat.label, cat.yOfs,
-    function(val)
-      if XPRateControlDB and XPRateControlDB.mobRates then
-        XPRateControlDB.mobRates[cat.key] = ClampRate(val)
-        XPRate.lastAppliedRate = nil
-        XPRate.lastAppliedMode = nil
-        EvaluateAutomation(false, cat.label .. " Rate Updated")
-      end
-    end,
-    function()
-      return XPRateControlDB and XPRateControlDB.mobRates and XPRateControlDB.mobRates[cat.key] or (cat.key == "gray" and 0.0 or (cat.key == "green" and 0.5 or (cat.key == "yellow" and 1.0 or 2.0)))
+local mobRatesLabel = AutoMobSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+mobRatesLabel:SetPoint("TOPLEFT", AutoMobSubFrame, "TOPLEFT", 12, -72)
+mobRatesLabel:SetText("Select Mob Color to Configure:")
+mobRatesLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+
+function XPRate.UpdateMobButtonsUI()
+  local currentCategory = XPRate.GetUnitDifficultyCategory and XPRate.GetUnitDifficultyCategory("target")
+  for i, btn in ipairs(mobButtons) do
+    local cat = mobCategories[i]
+    if i == mobSelectedCategory then
+      btn:SetBackdropColor(CLR.accentBg[1], CLR.accentBg[2], CLR.accentBg[3], 0.95)
+      btn:SetBackdropBorderColor(cat.color[1], cat.color[2], cat.color[3], 0.95)
+      btn.text:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+    elseif (currentCategory == cat.key) and XPRateControlDB and XPRateControlDB.autoMob then
+      btn:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.8)
+      btn:SetBackdropBorderColor(cat.color[1], cat.color[2], cat.color[3], 0.9)
+      btn.text:SetTextColor(cat.color[1], cat.color[2], cat.color[3])
+    else
+      btn:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.8)
+      btn:SetBackdropBorderColor(CLR.btnEdge[1], CLR.btnEdge[2], CLR.btnEdge[3], 0.6)
+      btn.text:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
     end
-  )
-  tinsert(mobRowUpdaters, updater)
+  end
 end
 
-function XPRate.updateMobRows()
-  for _, u in ipairs(mobRowUpdaters) do
-    if u then u() end
+for i = 1, 4 do
+  local btn = CreateFrame("Button", nil, AutoMobSubFrame)
+  btn:SetSize(68, 20)
+  btn:SetPoint("TOPLEFT", AutoMobSubFrame, "TOPLEFT", 12 + (i-1)*71, -88)
+
+  btn:SetBackdrop({
+    bgFile   = "Interface\\ChatFrame\\ChatFrameBackground",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 8, edgeSize = 8,
+    insets = { left = 1, right = 1, top = 1, bottom = 1 }
+  })
+  btn:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.8)
+  btn:SetBackdropBorderColor(CLR.btnEdge[1], CLR.btnEdge[2], CLR.btnEdge[3], 0.6)
+
+  local text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  text:SetPoint("CENTER")
+  text:SetText(mobCategories[i].label)
+  text:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+  btn.text = text
+
+  btn:SetScript("OnClick", function()
+    mobSelectedCategory = i
+    XPRate.UpdateMobButtonsUI()
+    if updateMobRow then updateMobRow() end
+  end)
+
+  btn:SetScript("OnEnter", function(self)
+    if i ~= mobSelectedCategory then
+      self:SetBackdropColor(CLR.btnHover[1], CLR.btnHover[2], CLR.btnHover[3], 1)
+    end
+  end)
+  btn:SetScript("OnLeave", function(self)
+    XPRate.UpdateMobButtonsUI()
+  end)
+
+  mobButtons[i] = btn
+end
+
+XPRate.UpdateMobButtonsUI()
+
+updateMobRow = XPRate.CreateRestedPresetRow(AutoMobSubFrame, "Target Rate for Mob Color", -114,
+  function(val)
+    local catKey = mobCategories[mobSelectedCategory].key
+    if XPRateControlDB and XPRateControlDB.mobRates then
+      XPRateControlDB.mobRates[catKey] = ClampRate(val)
+      XPRate.lastAppliedRate = nil
+      XPRate.lastAppliedMode = nil
+      EvaluateAutomation(false, string.format("%s Rate Updated", mobCategories[mobSelectedCategory].label))
+      XPRate.UpdateMobButtonsUI()
+      if updateMobRow then updateMobRow() end
+    end
+  end,
+  function()
+    local catKey = mobCategories[mobSelectedCategory].key
+    local defaultVal = (catKey == "gray" and 0.0 or (catKey == "green" and 0.5 or (catKey == "yellow" and 1.0 or 2.0)))
+    return XPRateControlDB and XPRateControlDB.mobRates and XPRateControlDB.mobRates[catKey] or defaultVal
   end
+)
+
+function XPRate.updateMobRows()
+  XPRate.UpdateMobButtonsUI()
+  if updateMobRow then updateMobRow() end
 end
 
 SelectAutomationSubTab(1)
