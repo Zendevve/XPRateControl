@@ -276,7 +276,7 @@ donateBtn:SetPoint("BOTTOM", frame, "BOTTOM", 0, 5)
 local coffeeIcon = donateBtn:CreateTexture(nil, "ARTWORK")
 coffeeIcon:SetSize(14, 14)
 coffeeIcon:SetPoint("LEFT", donateBtn, "LEFT", 0, 0)
-coffeeIcon:SetTexture("Interface\\Icons\\INV_Drink_07")
+coffeeIcon:SetTexture("Interface\\AddOns\\XPRateControl\\Textures\\Icon_Donate")
 
 local donateText = donateBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 donateText:SetPoint("LEFT", coffeeIcon, "RIGHT", 4, 0)

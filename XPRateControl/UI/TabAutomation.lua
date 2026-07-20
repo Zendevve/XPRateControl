@@ -100,6 +100,27 @@ coverFrame:SetScript("OnClick", HideDropdownMenu)
 
 local dropdownOptionBtns = {}
 
+function XPRate.UpdateDropdownCheckmarks()
+  if not XPRateControlDB then return end
+  local states = {
+    XPRateControlDB.autoRested and true or false,
+    XPRateControlDB.autoGroup and true or false,
+    XPRateControlDB.autoMob and true or false
+  }
+
+  for i, optBtn in ipairs(dropdownOptionBtns) do
+    if optBtn.statusTag then
+      if states[i] then
+        optBtn.statusTag:SetText("[v]")
+        optBtn.statusTag:SetTextColor(CLR.green[1], CLR.green[2], CLR.green[3])
+      else
+        optBtn.statusTag:SetText("[ ]")
+        optBtn.statusTag:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3], 0.5)
+      end
+    end
+  end
+end
+
 local function SelectAutomationSubTab(tabIndex)
   autoSubTabSelected = tabIndex
 
@@ -170,6 +191,10 @@ for i = 1, 3 do
   text:SetPoint("LEFT", icon, "RIGHT", 6, 0)
   text:SetText(cfg.name)
 
+  local statusTag = optBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  statusTag:SetPoint("RIGHT", optBtn, "RIGHT", -10, 0)
+  optBtn.statusTag = statusTag
+
   optBtn:SetScript("OnClick", function()
     SelectAutomationSubTab(i)
   end)
@@ -192,6 +217,7 @@ headerBtn:SetScript("OnClick", function()
   if dropdownMenu:IsShown() then
     HideDropdownMenu()
   else
+    XPRate.UpdateDropdownCheckmarks()
     dropdownMenu:Show()
     coverFrame:Show()
     headerArrow:SetText("^")
@@ -231,6 +257,7 @@ restedCheckbox:SetScript("OnClick", function(self)
   XPRate.lastAppliedRate = nil
   XPRate.lastAppliedMode = nil
   EvaluateAutomation(false, enabled and "Rested Auto ON" or "Rested Auto OFF")
+  if XPRate.UpdateDropdownCheckmarks then XPRate.UpdateDropdownCheckmarks() end
 end)
 
 restedCheckbox:SetScript("OnEnter", function(self)
@@ -286,6 +313,7 @@ groupCheckbox:SetScript("OnClick", function(self)
   XPRate.lastAppliedRate = nil
   XPRate.lastAppliedMode = nil
   EvaluateAutomation(false, enabled and "Party Auto ON" or "Party Auto OFF")
+  if XPRate.UpdateDropdownCheckmarks then XPRate.UpdateDropdownCheckmarks() end
 end)
 
 groupCheckbox:SetScript("OnEnter", function(self)
@@ -401,6 +429,7 @@ mobCheckbox:SetScript("OnClick", function(self)
   XPRate.lastAppliedRate = nil
   XPRate.lastAppliedMode = nil
   EvaluateAutomation(false, enabled and "Mob Auto ON" or "Mob Auto OFF")
+  if XPRate.UpdateDropdownCheckmarks then XPRate.UpdateDropdownCheckmarks() end
 end)
 
 mobCheckbox:SetScript("OnEnter", function(self)
