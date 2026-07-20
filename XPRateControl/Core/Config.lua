@@ -55,7 +55,12 @@ function XPRate.InitDB()
   if db.groupRates[2] == nil then db.groupRates[2] = 1.25 end
   if db.groupRates[3] == nil then db.groupRates[3] = 1.50 end
   if db.groupRates[4] == nil then db.groupRates[4] = 1.75 end
-  if db.groupRates[5] == nil then db.groupRates[5] = 2.00 end
+  if db.autoMob     == nil then db.autoMob     = false end
+  if db.mobRates    == nil then db.mobRates    = {} end
+  if db.mobRates.gray   == nil then db.mobRates.gray   = 0.0 end
+  if db.mobRates.green  == nil then db.mobRates.green  = 0.5 end
+  if db.mobRates.yellow == nil then db.mobRates.yellow = 1.0 end
+  if db.mobRates.red    == nil then db.mobRates.red    = 2.0 end
   if db.firstRun == nil then db.firstRun = true end
 
   return db

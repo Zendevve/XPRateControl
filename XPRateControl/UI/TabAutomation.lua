@@ -1,4 +1,4 @@
--- UI/TabAutomation.lua — Tab 2 Automation UI (Auto Rested & Party Auto-Scaling) for XPRateControl
+-- UI/TabAutomation.lua — Tab 2 Automation UI (Auto Rested, Party Auto-Scaling & Mob Difficulty Scaling) for XPRateControl
 local addonName, XPRate = ...
 
 local CLR                     = XPRate.CLR
@@ -14,7 +14,7 @@ local GetCurrentGroupSize     = XPRate.GetCurrentGroupSize
 
 local AutomationTabFrame = XPRate.AutomationTabFrame
 
-local autoSubTabSelected = 1 -- 1 = Rested XP, 2 = Party Scaling
+local autoSubTabSelected = 1 -- 1 = Rested XP, 2 = Party Scaling, 3 = Mob Difficulty
 
 -- Sub-Nav Segmented Buttons Container
 local autoSubNavFrame = CreateFrame("Frame", nil, AutomationTabFrame)
@@ -22,7 +22,7 @@ autoSubNavFrame:SetSize(308, 24)
 autoSubNavFrame:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 0, 0)
 
 local autoSubNavBtns = {}
-local autoSubNavNames = { "Rested XP", "Party Scaling" }
+local autoSubNavNames = { "Rested XP", "Party Scaling", "Mob Difficulty" }
 
 local AutoRestedSubFrame = CreateFrame("Frame", nil, AutomationTabFrame)
 AutoRestedSubFrame:SetSize(308, 172)
@@ -32,6 +32,11 @@ local AutoGroupSubFrame = CreateFrame("Frame", nil, AutomationTabFrame)
 AutoGroupSubFrame:SetSize(308, 172)
 AutoGroupSubFrame:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 0, -26)
 AutoGroupSubFrame:Hide()
+
+local AutoMobSubFrame = CreateFrame("Frame", nil, AutomationTabFrame)
+AutoMobSubFrame:SetSize(308, 172)
+AutoMobSubFrame:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 0, -26)
+AutoMobSubFrame:Hide()
 
 local function SelectAutomationSubTab(tabIndex)
   autoSubTabSelected = tabIndex
@@ -50,17 +55,25 @@ local function SelectAutomationSubTab(tabIndex)
   if tabIndex == 1 then
     AutoRestedSubFrame:Show()
     AutoGroupSubFrame:Hide()
-  else
+    AutoMobSubFrame:Hide()
+  elseif tabIndex == 2 then
     AutoRestedSubFrame:Hide()
     AutoGroupSubFrame:Show()
+    AutoMobSubFrame:Hide()
     if XPRate.UpdatePartyButtonsUI then XPRate.UpdatePartyButtonsUI() end
+  else
+    AutoRestedSubFrame:Hide()
+    AutoGroupSubFrame:Hide()
+    AutoMobSubFrame:Show()
+    if XPRate.updateMobRows then XPRate.updateMobRows() end
+    if UpdateAutomationStatus then UpdateAutomationStatus() end
   end
 end
 
-for i = 1, 2 do
+for i = 1, 3 do
   local btn = CreateFrame("Button", nil, autoSubNavFrame)
-  btn:SetSize(148, 22)
-  btn:SetPoint("TOPLEFT", autoSubNavFrame, "TOPLEFT", 4 + (i-1)*152, 0)
+  btn:SetSize(98, 22)
+  btn:SetPoint("TOPLEFT", autoSubNavFrame, "TOPLEFT", 4 + (i-1)*102, 0)
 
   btn:SetBackdrop({
     bgFile   = "Interface\\ChatFrame\\ChatFrameBackground",
@@ -266,5 +279,67 @@ updateGroupRow = XPRate.CreateRestedPresetRow(AutoGroupSubFrame, "Target Rate fo
   end
 )
 XPRate.updateGroupRow = updateGroupRow
+
+-- Controls in AutoMobSubFrame
+CreateSectionHeader(AutoMobSubFrame, "MOB DIFFICULTY SCALING", "Interface\\AddOns\\XPRateControl\\Textures\\Icon_Automation", CLR.red)
+
+local mobCheckbox = CreateFrame("CheckButton", "XPRateMobCheckbox", AutoMobSubFrame, "UICheckButtonTemplate")
+XPRate.mobCheckbox = mobCheckbox
+mobCheckbox:SetSize(22, 22)
+mobCheckbox:SetPoint("TOPLEFT", AutoMobSubFrame, "TOPLEFT", 12, -26)
+
+local mobCheckLabel = AutoMobSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+mobCheckLabel:SetPoint("LEFT", mobCheckbox, "RIGHT", 6, 0)
+mobCheckLabel:SetText("Auto-scale rates by mob color")
+mobCheckLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+
+local mobStateValue = AutoMobSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+mobStateValue:SetPoint("TOPLEFT", AutoMobSubFrame, "TOPLEFT", 12, -48)
+mobStateValue:SetText("Target: None / Non-Enemy")
+XPRate.mobStateValue = mobStateValue
+
+mobCheckbox:SetScript("OnClick", function(self)
+  local enabled = self:GetChecked() and true or false
+  XPRateControlDB.autoMob = enabled
+  XPRate.lastAppliedRate = nil
+  XPRate.lastAppliedMode = nil
+  EvaluateAutomation(false, enabled and "Mob Auto ON" or "Mob Auto OFF")
+end)
+
+mobCheckbox:SetScript("OnEnter", function(self)
+  ShowTooltip(self, "Automatically switch XP rate based on target mob difficulty color.")
+end)
+mobCheckbox:SetScript("OnLeave", HideTooltip)
+
+local mobRowUpdaters = {}
+local mobCategories = {
+  { key = "gray",   label = "Gray Mobs (Trivial)",   yOfs = -64 },
+  { key = "green",  label = "Green Mobs (Easy)",      yOfs = -92 },
+  { key = "yellow", label = "Yellow Mobs (Equal)",     yOfs = -120 },
+  { key = "red",    label = "Orange / Red (Hard)",     yOfs = -148 },
+}
+
+for i, cat in ipairs(mobCategories) do
+  local updater = XPRate.CreateRestedPresetRow(AutoMobSubFrame, cat.label, cat.yOfs,
+    function(val)
+      if XPRateControlDB and XPRateControlDB.mobRates then
+        XPRateControlDB.mobRates[cat.key] = ClampRate(val)
+        XPRate.lastAppliedRate = nil
+        XPRate.lastAppliedMode = nil
+        EvaluateAutomation(false, cat.label .. " Rate Updated")
+      end
+    end,
+    function()
+      return XPRateControlDB and XPRateControlDB.mobRates and XPRateControlDB.mobRates[cat.key] or (cat.key == "gray" and 0.0 or (cat.key == "green" and 0.5 or (cat.key == "yellow" and 1.0 or 2.0)))
+    end
+  )
+  tinsert(mobRowUpdaters, updater)
+end
+
+function XPRate.updateMobRows()
+  for _, u in ipairs(mobRowUpdaters) do
+    if u then u() end
+  end
+end
 
 SelectAutomationSubTab(1)

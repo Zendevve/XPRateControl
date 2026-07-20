@@ -156,6 +156,7 @@ function XPRate.SetActiveTab(index)
   if index == 2 then
     if XPRate.updateRestedRow then XPRate.updateRestedRow() end
     if XPRate.updateNormalRow then XPRate.updateNormalRow() end
+    if XPRate.updateMobRows then XPRate.updateMobRows() end
     if XPRate.UpdateAutomationStatus then XPRate.UpdateAutomationStatus() end
   end
 end

@@ -27,18 +27,65 @@ function XPRate.GetCurrentGroupSize()
   return 1
 end
 
--- Evaluates auto-rested and party auto-scaling state
+-- Difficulty category resolver (Gray, Green, Yellow, Orange/Red) for target unit
+function XPRate.GetUnitDifficultyCategory(unit)
+  unit = unit or "target"
+  if not UnitExists(unit) or not UnitCanAttack("player", unit) or UnitIsDead(unit) or UnitIsPlayer(unit) then
+    return nil
+  end
+
+  local mobLevel = UnitLevel(unit)
+  local playerLevel = UnitLevel("player")
+
+  if mobLevel <= 0 or (mobLevel - playerLevel) >= 3 then
+    return "red", "Orange / Red"
+  elseif (mobLevel - playerLevel) >= -2 and (mobLevel - playerLevel) <= 2 then
+    return "yellow", "Yellow"
+  else
+    local color = GetQuestDifficultyColor(mobLevel)
+    if color == QuestDifficultyColors["green"] then
+      return "green", "Green"
+    elseif color == QuestDifficultyColors["trivial"] or color == QuestDifficultyColors["header"] then
+      return "gray", "Gray"
+    else
+      local grayThreshold = 0
+      if playerLevel <= 5 then grayThreshold = 0
+      elseif playerLevel <= 9 then grayThreshold = playerLevel - 5
+      elseif playerLevel <= 11 then grayThreshold = playerLevel - 6
+      elseif playerLevel <= 19 then grayThreshold = playerLevel - 7
+      elseif playerLevel <= 29 then grayThreshold = playerLevel - 8
+      elseif playerLevel <= 39 then grayThreshold = playerLevel - 9
+      elseif playerLevel <= 49 then grayThreshold = playerLevel - 11
+      elseif playerLevel <= 59 then grayThreshold = playerLevel - 12
+      elseif playerLevel <= 69 then grayThreshold = playerLevel - 13
+      else grayThreshold = playerLevel - 14
+      end
+
+      if mobLevel <= grayThreshold then
+        return "gray", "Gray"
+      else
+        return "green", "Green"
+      end
+    end
+  end
+end
+
+-- Evaluates auto-rested, party auto-scaling, and mob difficulty scaling state
 function XPRate.EvaluateAutomation(silent, reason)
   local db = XPRateControlDB
   if not db then return end
 
   local gSize = XPRate.GetCurrentGroupSize()
   local isRested = (GetXPExhaustion() and GetXPExhaustion() > 0) or false
+  local mobCategory, mobLabel = XPRate.GetUnitDifficultyCategory("target")
 
   local targetRate = nil
   local activeMode = nil
 
-  if gSize > 1 and db.autoGroup then
+  if db.autoMob and mobCategory and db.mobRates and db.mobRates[mobCategory] then
+    targetRate = db.mobRates[mobCategory]
+    activeMode = "Mob Difficulty (" .. mobLabel .. ")"
+  elseif gSize > 1 and db.autoGroup then
     local mappedSize = math.min(gSize, 5)
     targetRate = (db.groupRates and db.groupRates[mappedSize]) or 1.00
     local stateText = (gSize >= 5) and "5P Group" or (gSize .. "P Group")
@@ -98,6 +145,22 @@ function XPRate.UpdateAutomationStatus()
     else
       XPRate.groupStateValue:SetText("Solo (1 Player)")
       XPRate.groupStateValue:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+    end
+  end
+
+  if XPRate.mobStateValue then
+    local mobCategory, mobLabel = XPRate.GetUnitDifficultyCategory("target")
+    if mobCategory then
+      local rate = db.mobRates and db.mobRates[mobCategory] or 1.0
+      XPRate.mobStateValue:SetText("Target: " .. mobLabel .. " (" .. FormatRate(rate) .. "x)")
+      if mobCategory == "red" then XPRate.mobStateValue:SetTextColor(CLR.red[1], CLR.red[2], CLR.red[3])
+      elseif mobCategory == "yellow" then XPRate.mobStateValue:SetTextColor(CLR.gold[1], CLR.gold[2], CLR.gold[3])
+      elseif mobCategory == "green" then XPRate.mobStateValue:SetTextColor(CLR.green[1], CLR.green[2], CLR.green[3])
+      else XPRate.mobStateValue:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+      end
+    else
+      XPRate.mobStateValue:SetText("Target: None / Non-Enemy")
+      XPRate.mobStateValue:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
     end
   end
 
@@ -242,5 +305,11 @@ groupBackendFrame:RegisterEvent("PARTY_MEMBERS_CHANGED")
 groupBackendFrame:RegisterEvent("RAID_ROSTER_UPDATE")
 groupBackendFrame:RegisterEvent("PARTY_LEADER_CHANGED")
 groupBackendFrame:SetScript("OnEvent", function(self, event)
+  XPRate.EvaluateAutomation(false, event)
+end)
+
+local mobBackendFrame = CreateFrame("Frame")
+mobBackendFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
+mobBackendFrame:SetScript("OnEvent", function(self, event)
   XPRate.EvaluateAutomation(false, event)
 end)
