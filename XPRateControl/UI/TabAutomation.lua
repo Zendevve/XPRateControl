@@ -32,9 +32,9 @@ AutoMobSubFrame:Hide()
 
 -- Sub-tab configurations
 local autoSubTabConfig = {
-  { name = "AUTO RESTED XP",        icon = "Interface\\AddOns\\XPRateControl\\Textures\\Icon_Automation", color = CLR.green },
-  { name = "PARTY AUTO SCALING",    icon = "Interface\\AddOns\\XPRateControl\\Textures\\Icon_Automation", color = CLR.cyan },
-  { name = "MOB DIFFICULTY SCALING", icon = "Interface\\AddOns\\XPRateControl\\Textures\\Icon_Automation", color = CLR.red },
+  { name = "AUTO RESTED XP",        icon = "Interface\\AddOns\\XPRateControl\\Textures\\Icon_AutoRested", color = CLR.green },
+  { name = "PARTY AUTO SCALING",    icon = "Interface\\AddOns\\XPRateControl\\Textures\\Icon_AutoParty",  color = CLR.cyan },
+  { name = "MOB DIFFICULTY SCALING", icon = "Interface\\AddOns\\XPRateControl\\Textures\\Icon_AutoMob",    color = CLR.red },
 }
 
 -- Header Dropdown Container Button
