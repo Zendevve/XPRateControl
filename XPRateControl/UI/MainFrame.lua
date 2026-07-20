@@ -196,14 +196,111 @@ for i = 1, 3 do
   tabButtons[i] = btn
 end
 
--- Footer bevel line & branding text
+-- Footer bevel line & branding
 local footerBevel = frame:CreateTexture(nil, "ARTWORK")
 footerBevel:SetSize(304, 1)
 footerBevel:SetPoint("BOTTOM", frame, "BOTTOM", 0, 30)
 footerBevel:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
 footerBevel:SetVertexColor(CLR.cardEdge[1], CLR.cardEdge[2], CLR.cardEdge[3], 0.6)
 
-local footerText = frame:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-footerText:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 12, 10)
-footerText:SetText("XP Rate Control v1.1 | WotLK 3.3.5a")
-footerText:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3], 0.7)
+-- Support Copy Popup Dialog
+local copyFrame = CreateFrame("Frame", "XPRateCopyFrame", UIParent)
+copyFrame:SetSize(280, 80)
+copyFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+copyFrame:SetFrameStrata("DIALOG")
+copyFrame:SetBackdrop({
+  bgFile   = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
+  edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+  tile = true, tileSize = 16, edgeSize = 16,
+  insets = { left = 4, right = 4, top = 4, bottom = 4 }
+})
+copyFrame:SetBackdropColor(CLR.panelBg[1], CLR.panelBg[2], CLR.panelBg[3], 0.98)
+copyFrame:SetBackdropBorderColor(CLR.gold[1], CLR.gold[2], CLR.gold[3], 0.9)
+copyFrame:Hide()
+
+local copyTitle = copyFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+copyTitle:SetPoint("TOP", copyFrame, "TOP", 0, -12)
+copyTitle:SetText("Press Ctrl+C to copy link:")
+copyTitle:SetTextColor(CLR.gold[1], CLR.gold[2], CLR.gold[3])
+
+local copyEditBox = CreateFrame("EditBox", nil, copyFrame)
+copyEditBox:SetSize(248, 22)
+copyEditBox:SetPoint("CENTER", copyFrame, "CENTER", 0, -6)
+copyEditBox:SetFontObject("GameFontHighlightSmall")
+copyEditBox:SetJustifyH("CENTER")
+copyEditBox:SetAutoFocus(false)
+copyEditBox:SetBackdrop({
+  bgFile   = "Interface\\ChatFrame\\ChatFrameBackground",
+  edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+  tile = true, tileSize = 8, edgeSize = 8,
+  insets = { left = 2, right = 2, top = 2, bottom = 2 }
+})
+copyEditBox:SetBackdropColor(0.02, 0.03, 0.06, 0.9)
+copyEditBox:SetBackdropBorderColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3], 0.8)
+copyEditBox:SetText("https://buymeacoffee.com/zendevve")
+
+copyEditBox:SetScript("OnEscapePressed", function(self)
+  copyFrame:Hide()
+end)
+copyEditBox:SetScript("OnEditFocusLost", function(self)
+  self:HighlightText(0, 0)
+end)
+
+local copyCloseBtn = CreateFrame("Button", nil, copyFrame)
+copyCloseBtn:SetSize(18, 18)
+copyCloseBtn:SetPoint("TOPRIGHT", copyFrame, "TOPRIGHT", -4, -4)
+copyCloseBtn:SetBackdrop({
+  bgFile   = "Interface\\ChatFrame\\ChatFrameBackground",
+  edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+  tile = true, tileSize = 8, edgeSize = 8,
+  insets = { left = 1, right = 1, top = 1, bottom = 1 }
+})
+copyCloseBtn:SetBackdropColor(0.35, 0.08, 0.08, 0.9)
+copyCloseBtn:SetBackdropBorderColor(0.7, 0.2, 0.2, 0.8)
+
+local copyCloseText = copyCloseBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+copyCloseText:SetPoint("CENTER", copyCloseBtn, "CENTER", 0, 0)
+copyCloseText:SetText("X")
+copyCloseText:SetTextColor(0.9, 0.9, 0.9)
+
+copyCloseBtn:SetScript("OnClick", function()
+  copyFrame:Hide()
+end)
+
+-- BuyMeACoffee Button (Centered Footer)
+local donateBtn = CreateFrame("Button", nil, frame)
+donateBtn:SetSize(170, 20)
+donateBtn:SetPoint("BOTTOM", frame, "BOTTOM", 0, 5)
+
+local coffeeIcon = donateBtn:CreateTexture(nil, "ARTWORK")
+coffeeIcon:SetSize(14, 14)
+coffeeIcon:SetPoint("LEFT", donateBtn, "LEFT", 0, 0)
+coffeeIcon:SetTexture("Interface\\Icons\\INV_Drink_07")
+
+local donateText = donateBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+donateText:SetPoint("LEFT", coffeeIcon, "RIGHT", 4, 0)
+donateText:SetText("buymeacoffee.com/zendevve")
+donateText:SetTextColor(CLR.gold[1], CLR.gold[2], CLR.gold[3], 0.9)
+
+donateBtn:SetScript("OnEnter", function(self)
+  donateText:SetTextColor(1, 1, 1, 1)
+  if XPRate.ShowTooltip then
+    XPRate.ShowTooltip(self, "Click to copy developer support link")
+  end
+end)
+
+donateBtn:SetScript("OnLeave", function(self)
+  donateText:SetTextColor(CLR.gold[1], CLR.gold[2], CLR.gold[3], 0.9)
+  if XPRate.HideTooltip then
+    XPRate.HideTooltip()
+  end
+end)
+
+donateBtn:SetScript("OnClick", function()
+  if XPRate.PrintMessage then
+    XPRate.PrintMessage("|cffffcc00Support the developer:|r https://buymeacoffee.com/zendevve")
+  end
+  copyFrame:Show()
+  copyEditBox:SetFocus()
+  copyEditBox:HighlightText()
+end)

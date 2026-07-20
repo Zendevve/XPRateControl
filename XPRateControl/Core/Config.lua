@@ -50,15 +50,12 @@ function XPRate.InitDB()
   if db.restedRate  == nil then db.restedRate  = 2.0 end
   if db.normalRate  == nil then db.normalRate  = 1.0 end
   if db.autoGroup   == nil then db.autoGroup   = false end
-  if db.groupRates  == nil then
-    db.groupRates = {
-      [1] = 1.00,
-      [2] = 1.25,
-      [3] = 1.50,
-      [4] = 1.75,
-      [5] = 2.00,
-    }
-  end
+  if db.groupRates  == nil then db.groupRates  = {} end
+  if db.groupRates[1] == nil then db.groupRates[1] = 1.00 end
+  if db.groupRates[2] == nil then db.groupRates[2] = 1.25 end
+  if db.groupRates[3] == nil then db.groupRates[3] = 1.50 end
+  if db.groupRates[4] == nil then db.groupRates[4] = 1.75 end
+  if db.groupRates[5] == nil then db.groupRates[5] = 2.00 end
   if db.firstRun == nil then db.firstRun = true end
 
   return db

@@ -99,8 +99,8 @@ end
 -- Custom Slider
 local slider = CreateFrame("Slider", "XPRateSliderWidget", RatesTabFrame)
 XPRate.XPRateSliderWidget = slider
-slider:SetSize(200, 14)
-slider:SetPoint("TOPLEFT", heroCard, "BOTTOMLEFT", 12, -18)
+slider:SetSize(210, 14)
+slider:SetPoint("TOPLEFT", RatesTabFrame, "TOPLEFT", 14, -132)
 slider:SetMinMaxValues(RATE_MIN, RATE_MAX)
 slider:SetValueStep(RATE_STEP)
 slider:SetOrientation("HORIZONTAL")
@@ -123,17 +123,9 @@ trackFill:SetPoint("LEFT", slider, "LEFT", 0, 0)
 trackFill:SetPoint("RIGHT", thumb, "CENTER", 0, 0)
 trackFill:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
 
-local lowText = slider:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-lowText:SetPoint("TOPLEFT", slider, "BOTTOMLEFT", 0, -4)
-lowText:SetText("0x")
-
-local highText = slider:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-highText:SetPoint("TOPRIGHT", slider, "BOTTOMRIGHT", 0, -4)
-highText:SetText("2x")
-
 -- Numeric editbox (beside slider)
 local editbox = CreateFrame("EditBox", "XPRateEditBoxWidget", RatesTabFrame)
-editbox:SetSize(54, 18)
+editbox:SetSize(52, 20)
 editbox:SetPoint("LEFT", slider, "RIGHT", 12, 0)
 editbox:SetAutoFocus(false)
 editbox:SetFontObject("GameFontHighlightSmall")
@@ -282,8 +274,8 @@ local presets = {
 
 for i, p in ipairs(presets) do
   local btn = CreateFrame("Button", nil, RatesTabFrame)
-  btn:SetSize(42, 22)
-  btn:SetPoint("TOPLEFT", RatesTabFrame, "TOPLEFT", 12 + (i-1)*48, -156)
+  btn:SetSize(54, 22)
+  btn:SetPoint("TOPLEFT", RatesTabFrame, "TOPLEFT", 12 + (i-1)*56, -164)
 
   btn:SetBackdrop({
     bgFile   = "Interface\\ChatFrame\\ChatFrameBackground",

@@ -8,6 +8,8 @@ local ClampRate     = XPRate.ClampRate
 local ApplyRate     = XPRate.ApplyRate
 local MakeButton    = XPRate.MakeButton
 local ShowToast     = XPRate.ShowToast
+local ShowTooltip   = XPRate.ShowTooltip
+local HideTooltip   = XPRate.HideTooltip
 
 XPRate.lastAppliedRate = nil
 XPRate.lastAppliedMode = nil
@@ -115,6 +117,23 @@ function XPRate.CreateRestedPresetRow(parent, labelText, yOfs, onClickCallback, 
   local presetLabels = { "0x", "0.5x", "1x", "1.5x", "2x" }
   local btns = {}
 
+  -- Numeric EditBox for custom rate input
+  local editbox = CreateFrame("EditBox", nil, parent)
+  editbox:SetSize(52, 20)
+  editbox:SetPoint("TOPLEFT", parent, "TOPLEFT", 240, yOfs - 16)
+  editbox:SetAutoFocus(false)
+  editbox:SetFontObject("GameFontHighlightSmall")
+  editbox:SetJustifyH("CENTER")
+  editbox:SetMaxLetters(5)
+  editbox:SetBackdrop({
+    bgFile   = "Interface\\ChatFrame\\ChatFrameBackground",
+    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+    tile = true, tileSize = 8, edgeSize = 8,
+    insets = { left = 2, right = 2, top = 2, bottom = 2 }
+  })
+  editbox:SetBackdropColor(0.02, 0.03, 0.06, 0.85)
+  editbox:SetBackdropBorderColor(CLR.dim[1], CLR.dim[2], CLR.dim[3], 0.6)
+
   local function updateSelection()
     local currentVal = getValCallback()
     for i, btn in ipairs(btns) do
@@ -128,11 +147,21 @@ function XPRate.CreateRestedPresetRow(parent, labelText, yOfs, onClickCallback, 
         btn.text:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
       end
     end
+
+    if not editbox:HasFocus() then
+      editbox:SetText(FormatRate(currentVal))
+    end
   end
 
   for i = 1, 5 do
-    local btn = MakeButton(parent, 54, 20, CLR.btnBg, CLR.btnEdge)
-    btn:SetPoint("TOPLEFT", parent, "TOPLEFT", 12 + (i-1)*56, yOfs - 16)
+    local btn = MakeButton(parent, 42, 20, CLR.btnBg, CLR.btnEdge)
+    btn:SetPoint("TOPLEFT", parent, "TOPLEFT", 12 + (i-1)*45, yOfs - 16)
+    btn:SetBackdrop({
+      bgFile   = "Interface\\ChatFrame\\ChatFrameBackground",
+      edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+      tile = true, tileSize = 8, edgeSize = 8,
+      insets = { left = 1, right = 1, top = 1, bottom = 1 }
+    })
 
     local text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     text:SetPoint("CENTER")
@@ -157,6 +186,44 @@ function XPRate.CreateRestedPresetRow(parent, labelText, yOfs, onClickCallback, 
 
     btns[i] = btn
   end
+
+  local function validateAndApplyEditBox()
+    local text = editbox:GetText()
+    local val = tonumber(text)
+    if val then
+      local clamped = ClampRate(val)
+      onClickCallback(clamped)
+    end
+    updateSelection()
+  end
+
+  editbox:SetScript("OnEditFocusGained", function(self)
+    self:SetBackdropBorderColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3], 0.9)
+  end)
+
+  editbox:SetScript("OnEscapePressed", function(self)
+    self.reverting = true
+    self:ClearFocus()
+    updateSelection()
+  end)
+
+  editbox:SetScript("OnEnterPressed", function(self)
+    self:ClearFocus()
+  end)
+
+  editbox:SetScript("OnEditFocusLost", function(self)
+    self:SetBackdropBorderColor(CLR.dim[1], CLR.dim[2], CLR.dim[3], 0.6)
+    if self.reverting then
+      self.reverting = nil
+      return
+    end
+    validateAndApplyEditBox()
+  end)
+
+  editbox:SetScript("OnEnter", function(self)
+    ShowTooltip(self, "Type a rate (0.00 - 2.00), press Enter")
+  end)
+  editbox:SetScript("OnLeave", HideTooltip)
 
   updateSelection()
   return updateSelection
