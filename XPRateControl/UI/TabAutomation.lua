@@ -7,7 +7,6 @@ local ClampRate              = XPRate.ClampRate
 local RateColor              = XPRate.RateColor
 local ShowTooltip             = XPRate.ShowTooltip
 local HideTooltip             = XPRate.HideTooltip
-local CreateSectionHeader     = XPRate.CreateSectionHeader
 local EvaluateAutomation      = XPRate.EvaluateAutomation
 local UpdateAutomationStatus  = XPRate.UpdateAutomationStatus
 local GetCurrentGroupSize     = XPRate.GetCurrentGroupSize
@@ -16,42 +15,101 @@ local AutomationTabFrame = XPRate.AutomationTabFrame
 
 local autoSubTabSelected = 1 -- 1 = Rested XP, 2 = Party Size, 3 = Mob Color
 
--- Sub-Nav Segmented Buttons Container
-local autoSubNavFrame = CreateFrame("Frame", nil, AutomationTabFrame)
-autoSubNavFrame:SetSize(308, 24)
-autoSubNavFrame:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 0, 0)
-
-local autoSubNavBtns = {}
-local autoSubNavNames = { "Rested XP", "Party Size", "Mob Color" }
-
+-- Sub-Frames Container Setup
 local AutoRestedSubFrame = CreateFrame("Frame", nil, AutomationTabFrame)
 AutoRestedSubFrame:SetSize(308, 172)
-AutoRestedSubFrame:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 0, -26)
+AutoRestedSubFrame:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 0, -32)
 
 local AutoGroupSubFrame = CreateFrame("Frame", nil, AutomationTabFrame)
 AutoGroupSubFrame:SetSize(308, 172)
-AutoGroupSubFrame:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 0, -26)
+AutoGroupSubFrame:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 0, -32)
 AutoGroupSubFrame:Hide()
 
 local AutoMobSubFrame = CreateFrame("Frame", nil, AutomationTabFrame)
 AutoMobSubFrame:SetSize(308, 172)
-AutoMobSubFrame:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 0, -26)
+AutoMobSubFrame:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 0, -32)
 AutoMobSubFrame:Hide()
+
+-- Sub-tab configurations
+local autoSubTabConfig = {
+  { name = "AUTO RESTED XP",        icon = "Interface\\AddOns\\XPRateControl\\Textures\\Icon_Automation", color = CLR.green },
+  { name = "PARTY AUTO SCALING",    icon = "Interface\\AddOns\\XPRateControl\\Textures\\Icon_Automation", color = CLR.cyan },
+  { name = "MOB DIFFICULTY SCALING", icon = "Interface\\AddOns\\XPRateControl\\Textures\\Icon_Automation", color = CLR.red },
+}
+
+-- Header Dropdown Container Button
+local headerBtn = CreateFrame("Button", "XPRateAutoHeaderDropdown", AutomationTabFrame)
+headerBtn:SetSize(308, 26)
+headerBtn:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 0, 0)
+
+headerBtn:SetBackdrop({
+  bgFile   = "Interface\\ChatFrame\\ChatFrameBackground",
+  edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+  tile = true, tileSize = 12, edgeSize = 12,
+  insets = { left = 2, right = 2, top = 2, bottom = 2 }
+})
+headerBtn:SetBackdropColor(CLR.panelBg[1], CLR.panelBg[2], CLR.panelBg[3], 0.95)
+headerBtn:SetBackdropBorderColor(CLR.cardEdge[1], CLR.cardEdge[2], CLR.cardEdge[3], 0.9)
+
+local headerStripe = headerBtn:CreateTexture(nil, "ARTWORK")
+headerStripe:SetSize(4, 18)
+headerStripe:SetPoint("LEFT", headerBtn, "LEFT", 8, 0)
+headerStripe:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
+
+local headerIcon = headerBtn:CreateTexture(nil, "ARTWORK")
+headerIcon:SetSize(18, 18)
+headerIcon:SetPoint("LEFT", headerStripe, "RIGHT", 6, 0)
+
+local headerTitle = headerBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+headerTitle:SetPoint("LEFT", headerIcon, "RIGHT", 6, 0)
+
+local headerArrow = headerBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+headerArrow:SetPoint("RIGHT", headerBtn, "RIGHT", -12, 0)
+headerArrow:SetText("v")
+headerArrow:SetTextColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3])
+
+-- Fullscreen invisible backdrop for click-outside dismissal
+local coverFrame = CreateFrame("Button", nil, UIParent)
+coverFrame:SetAllPoints(UIParent)
+coverFrame:SetFrameStrata("FULLSCREEN_DIALOG")
+coverFrame:Hide()
+
+-- Custom Dropdown Popup Menu Frame
+local dropdownMenu = CreateFrame("Frame", "XPRateAutoDropdownMenu", AutomationTabFrame)
+dropdownMenu:SetSize(308, 82)
+dropdownMenu:SetPoint("TOPLEFT", headerBtn, "BOTTOMLEFT", 0, -2)
+dropdownMenu:SetFrameStrata("FULLSCREEN_DIALOG")
+dropdownMenu:SetFrameLevel(coverFrame:GetFrameLevel() + 1)
+dropdownMenu:SetBackdrop({
+  bgFile   = "Interface\\ChatFrame\\ChatFrameBackground",
+  edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+  tile = true, tileSize = 12, edgeSize = 12,
+  insets = { left = 3, right = 3, top = 3, bottom = 3 }
+})
+dropdownMenu:SetBackdropColor(CLR.panelBg[1], CLR.panelBg[2], CLR.panelBg[3], 0.98)
+dropdownMenu:SetBackdropBorderColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3], 0.95)
+dropdownMenu:Hide()
+
+local function HideDropdownMenu()
+  dropdownMenu:Hide()
+  coverFrame:Hide()
+  headerArrow:SetText("v")
+end
+
+coverFrame:SetScript("OnClick", HideDropdownMenu)
+
+local dropdownOptionBtns = {}
 
 local function SelectAutomationSubTab(tabIndex)
   autoSubTabSelected = tabIndex
-  for i, btn in ipairs(autoSubNavBtns) do
-    if i == tabIndex then
-      btn:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.95)
-      btn:SetBackdropBorderColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3], 0.95)
-      btn.text:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
-    else
-      btn:SetBackdropColor(CLR.panelBg[1], CLR.panelBg[2], CLR.panelBg[3], 0.6)
-      btn:SetBackdropBorderColor(CLR.dim[1], CLR.dim[2], CLR.dim[3], 0.4)
-      btn.text:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
-    end
-  end
 
+  -- Update Header Display
+  local cfg = autoSubTabConfig[tabIndex]
+  headerStripe:SetVertexColor(cfg.color[1], cfg.color[2], cfg.color[3])
+  headerIcon:SetTexture(cfg.icon)
+  headerTitle:SetText(cfg.name)
+
+  -- Update Sub-Frames Visibility
   if tabIndex == 1 then
     AutoRestedSubFrame:Show()
     AutoGroupSubFrame:Hide()
@@ -68,50 +126,94 @@ local function SelectAutomationSubTab(tabIndex)
     if XPRate.updateMobRows then XPRate.updateMobRows() end
     if UpdateAutomationStatus then UpdateAutomationStatus() end
   end
+
+  -- Update Option Highlights in Menu
+  for i, optBtn in ipairs(dropdownOptionBtns) do
+    if i == tabIndex then
+      optBtn:SetBackdropColor(CLR.accentBg[1], CLR.accentBg[2], CLR.accentBg[3], 0.9)
+      optBtn:SetBackdropBorderColor(autoSubTabConfig[i].color[1], autoSubTabConfig[i].color[2], autoSubTabConfig[i].color[3], 0.95)
+    else
+      optBtn:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.6)
+      optBtn:SetBackdropBorderColor(CLR.btnEdge[1], CLR.btnEdge[2], CLR.btnEdge[3], 0.4)
+    end
+  end
+
+  HideDropdownMenu()
 end
 
+-- Populate Dropdown Menu Options
 for i = 1, 3 do
-  local btn = CreateFrame("Button", nil, autoSubNavFrame)
-  btn:SetSize(98, 22)
-  btn:SetPoint("TOPLEFT", autoSubNavFrame, "TOPLEFT", 4 + (i-1)*102, 0)
+  local cfg = autoSubTabConfig[i]
+  local optBtn = CreateFrame("Button", nil, dropdownMenu)
+  optBtn:SetSize(296, 24)
+  optBtn:SetPoint("TOPLEFT", dropdownMenu, "TOPLEFT", 6, -5 - (i-1)*25)
 
-  btn:SetBackdrop({
+  optBtn:SetBackdrop({
     bgFile   = "Interface\\ChatFrame\\ChatFrameBackground",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
     tile = true, tileSize = 8, edgeSize = 8,
     insets = { left = 1, right = 1, top = 1, bottom = 1 }
   })
 
-  local text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  text:SetPoint("CENTER")
-  text:SetText(autoSubNavNames[i])
-  btn.text = text
+  local stripe = optBtn:CreateTexture(nil, "ARTWORK")
+  stripe:SetSize(3, 14)
+  stripe:SetPoint("LEFT", optBtn, "LEFT", 6, 0)
+  stripe:SetTexture("Interface\\ChatFrame\\ChatFrameBackground")
+  stripe:SetVertexColor(cfg.color[1], cfg.color[2], cfg.color[3])
 
-  btn:SetScript("OnClick", function()
+  local icon = optBtn:CreateTexture(nil, "ARTWORK")
+  icon:SetSize(14, 14)
+  icon:SetPoint("LEFT", stripe, "RIGHT", 6, 0)
+  icon:SetTexture(cfg.icon)
+
+  local text = optBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  text:SetPoint("LEFT", icon, "RIGHT", 6, 0)
+  text:SetText(cfg.name)
+
+  optBtn:SetScript("OnClick", function()
     SelectAutomationSubTab(i)
   end)
 
-  btn:SetScript("OnEnter", function(self)
+  optBtn:SetScript("OnEnter", function(self)
     if i ~= autoSubTabSelected then
       self:SetBackdropColor(CLR.btnHover[1], CLR.btnHover[2], CLR.btnHover[3], 0.9)
     end
   end)
-  btn:SetScript("OnLeave", function(self)
+  optBtn:SetScript("OnLeave", function(self)
     if i ~= autoSubTabSelected then
-      self:SetBackdropColor(CLR.panelBg[1], CLR.panelBg[2], CLR.panelBg[3], 0.6)
+      self:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.6)
     end
   end)
 
-  autoSubNavBtns[i] = btn
+  dropdownOptionBtns[i] = optBtn
 end
 
--- Controls in AutoRestedSubFrame
-CreateSectionHeader(AutoRestedSubFrame, "AUTO RESTED XP", "Interface\\AddOns\\XPRateControl\\Textures\\Icon_Automation", CLR.green)
+headerBtn:SetScript("OnClick", function()
+  if dropdownMenu:IsShown() then
+    HideDropdownMenu()
+  else
+    dropdownMenu:Show()
+    coverFrame:Show()
+    headerArrow:SetText("^")
+  end
+end)
 
+headerBtn:SetScript("OnEnter", function(self)
+  self:SetBackdropColor(CLR.btnHover[1], CLR.btnHover[2], CLR.btnHover[3], 0.95)
+  headerArrow:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+end)
+headerBtn:SetScript("OnLeave", function(self)
+  self:SetBackdropColor(CLR.panelBg[1], CLR.panelBg[2], CLR.panelBg[3], 0.95)
+  headerArrow:SetTextColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3])
+end)
+
+AutomationTabFrame:SetScript("OnHide", HideDropdownMenu)
+
+-- ==================== Controls in AutoRestedSubFrame ====================
 local restedCheckbox = CreateFrame("CheckButton", "XPRateRestedCheckbox", AutoRestedSubFrame, "UICheckButtonTemplate")
 XPRate.restedCheckbox = restedCheckbox
 restedCheckbox:SetSize(22, 22)
-restedCheckbox:SetPoint("TOPLEFT", AutoRestedSubFrame, "TOPLEFT", 12, -26)
+restedCheckbox:SetPoint("TOPLEFT", AutoRestedSubFrame, "TOPLEFT", 12, -6)
 
 local restedCheckLabel = AutoRestedSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 restedCheckLabel:SetPoint("LEFT", restedCheckbox, "RIGHT", 6, 0)
@@ -119,27 +221,9 @@ restedCheckLabel:SetText("Auto-switch on Rested XP")
 restedCheckLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
 
 local restedStateValue = AutoRestedSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-restedStateValue:SetPoint("TOPLEFT", AutoRestedSubFrame, "TOPLEFT", 12, -52)
+restedStateValue:SetPoint("TOPLEFT", AutoRestedSubFrame, "TOPLEFT", 12, -32)
 restedStateValue:SetText("Status: Inactive")
 XPRate.restedStateValue = restedStateValue
-
--- Controls in AutoGroupSubFrame
-CreateSectionHeader(AutoGroupSubFrame, "PARTY AUTO SCALING", "Interface\\AddOns\\XPRateControl\\Textures\\Icon_Automation", CLR.cyan)
-
-local groupCheckbox = CreateFrame("CheckButton", "XPRateGroupCheckbox", AutoGroupSubFrame, "UICheckButtonTemplate")
-XPRate.groupCheckbox = groupCheckbox
-groupCheckbox:SetSize(22, 22)
-groupCheckbox:SetPoint("TOPLEFT", AutoGroupSubFrame, "TOPLEFT", 12, -26)
-
-local groupCheckLabel = AutoGroupSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-groupCheckLabel:SetPoint("LEFT", groupCheckbox, "RIGHT", 6, 0)
-groupCheckLabel:SetText("Auto-scale rates by party size")
-groupCheckLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
-
-local groupStateValue = AutoGroupSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-groupStateValue:SetPoint("TOPLEFT", AutoGroupSubFrame, "TOPLEFT", 12, -52)
-groupStateValue:SetText("Status: Inactive")
-XPRate.groupStateValue = groupStateValue
 
 restedCheckbox:SetScript("OnClick", function(self)
   local enabled = self:GetChecked() and true or false
@@ -154,7 +238,7 @@ restedCheckbox:SetScript("OnEnter", function(self)
 end)
 restedCheckbox:SetScript("OnLeave", HideTooltip)
 
-local updateRestedRow = XPRate.CreateRestedPresetRow(AutoRestedSubFrame, "Rested Rate", -72,
+local updateRestedRow = XPRate.CreateRestedPresetRow(AutoRestedSubFrame, "Rested Rate", -52,
   function(val)
     XPRateControlDB.restedRate = ClampRate(val)
     XPRate.lastAppliedRate = nil
@@ -167,7 +251,7 @@ local updateRestedRow = XPRate.CreateRestedPresetRow(AutoRestedSubFrame, "Rested
 )
 XPRate.updateRestedRow = updateRestedRow
 
-local updateNormalRow = XPRate.CreateRestedPresetRow(AutoRestedSubFrame, "Normal Rate", -114,
+local updateNormalRow = XPRate.CreateRestedPresetRow(AutoRestedSubFrame, "Normal Rate", -94,
   function(val)
     XPRateControlDB.normalRate = ClampRate(val)
     XPRate.lastAppliedRate = nil
@@ -180,7 +264,22 @@ local updateNormalRow = XPRate.CreateRestedPresetRow(AutoRestedSubFrame, "Normal
 )
 XPRate.updateNormalRow = updateNormalRow
 
--- Controls in AutoGroupSubFrame
+-- ==================== Controls in AutoGroupSubFrame ====================
+local groupCheckbox = CreateFrame("CheckButton", "XPRateGroupCheckbox", AutoGroupSubFrame, "UICheckButtonTemplate")
+XPRate.groupCheckbox = groupCheckbox
+groupCheckbox:SetSize(22, 22)
+groupCheckbox:SetPoint("TOPLEFT", AutoGroupSubFrame, "TOPLEFT", 12, -6)
+
+local groupCheckLabel = AutoGroupSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+groupCheckLabel:SetPoint("LEFT", groupCheckbox, "RIGHT", 6, 0)
+groupCheckLabel:SetText("Auto-scale rates by party size")
+groupCheckLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+
+local groupStateValue = AutoGroupSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+groupStateValue:SetPoint("TOPLEFT", AutoGroupSubFrame, "TOPLEFT", 12, -32)
+groupStateValue:SetText("Status: Inactive")
+XPRate.groupStateValue = groupStateValue
+
 groupCheckbox:SetScript("OnClick", function(self)
   local enabled = self:GetChecked() and true or false
   XPRateControlDB.autoGroup = enabled
@@ -200,7 +299,7 @@ local partyButtons = {}
 local updateGroupRow = nil
 
 local groupRatesLabel = AutoGroupSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-groupRatesLabel:SetPoint("TOPLEFT", AutoGroupSubFrame, "TOPLEFT", 12, -72)
+groupRatesLabel:SetPoint("TOPLEFT", AutoGroupSubFrame, "TOPLEFT", 12, -52)
 groupRatesLabel:SetText("Select Party Size to Configure:")
 groupRatesLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
 
@@ -226,7 +325,7 @@ end
 for i = 1, 5 do
   local btn = CreateFrame("Button", nil, AutoGroupSubFrame)
   btn:SetSize(54, 20)
-  btn:SetPoint("TOPLEFT", AutoGroupSubFrame, "TOPLEFT", 12 + (i-1)*56, -88)
+  btn:SetPoint("TOPLEFT", AutoGroupSubFrame, "TOPLEFT", 12 + (i-1)*56, -68)
 
   btn:SetBackdrop({
     bgFile   = "Interface\\ChatFrame\\ChatFrameBackground",
@@ -263,7 +362,7 @@ end
 
 XPRate.UpdatePartyButtonsUI()
 
-updateGroupRow = XPRate.CreateRestedPresetRow(AutoGroupSubFrame, "Target Rate for Party Size", -114,
+updateGroupRow = XPRate.CreateRestedPresetRow(AutoGroupSubFrame, "Target Rate for Party Size", -94,
   function(val)
     if XPRateControlDB and XPRateControlDB.groupRates then
       XPRateControlDB.groupRates[groupSelectedSize] = ClampRate(val)
@@ -280,13 +379,11 @@ updateGroupRow = XPRate.CreateRestedPresetRow(AutoGroupSubFrame, "Target Rate fo
 )
 XPRate.updateGroupRow = updateGroupRow
 
--- Controls in AutoMobSubFrame
-CreateSectionHeader(AutoMobSubFrame, "MOB DIFFICULTY SCALING", "Interface\\AddOns\\XPRateControl\\Textures\\Icon_Automation", CLR.red)
-
+-- ==================== Controls in AutoMobSubFrame ====================
 local mobCheckbox = CreateFrame("CheckButton", "XPRateMobCheckbox", AutoMobSubFrame, "UICheckButtonTemplate")
 XPRate.mobCheckbox = mobCheckbox
 mobCheckbox:SetSize(22, 22)
-mobCheckbox:SetPoint("TOPLEFT", AutoMobSubFrame, "TOPLEFT", 12, -26)
+mobCheckbox:SetPoint("TOPLEFT", AutoMobSubFrame, "TOPLEFT", 12, -6)
 
 local mobCheckLabel = AutoMobSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 mobCheckLabel:SetPoint("LEFT", mobCheckbox, "RIGHT", 6, 0)
@@ -294,7 +391,7 @@ mobCheckLabel:SetText("Auto-scale rates by mob color")
 mobCheckLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
 
 local mobStateValue = AutoMobSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-mobStateValue:SetPoint("TOPLEFT", AutoMobSubFrame, "TOPLEFT", 12, -52)
+mobStateValue:SetPoint("TOPLEFT", AutoMobSubFrame, "TOPLEFT", 12, -32)
 mobStateValue:SetText("Target: None / Non-Enemy")
 XPRate.mobStateValue = mobStateValue
 
@@ -322,7 +419,7 @@ local mobButtons = {}
 local updateMobRow = nil
 
 local mobRatesLabel = AutoMobSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-mobRatesLabel:SetPoint("TOPLEFT", AutoMobSubFrame, "TOPLEFT", 12, -72)
+mobRatesLabel:SetPoint("TOPLEFT", AutoMobSubFrame, "TOPLEFT", 12, -52)
 mobRatesLabel:SetText("Select Mob Color to Configure:")
 mobRatesLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
 
@@ -349,7 +446,7 @@ end
 for i = 1, 4 do
   local btn = CreateFrame("Button", nil, AutoMobSubFrame)
   btn:SetSize(68, 20)
-  btn:SetPoint("TOPLEFT", AutoMobSubFrame, "TOPLEFT", 12 + (i-1)*71, -88)
+  btn:SetPoint("TOPLEFT", AutoMobSubFrame, "TOPLEFT", 12 + (i-1)*71, -68)
 
   btn:SetBackdrop({
     bgFile   = "Interface\\ChatFrame\\ChatFrameBackground",
@@ -386,7 +483,7 @@ end
 
 XPRate.UpdateMobButtonsUI()
 
-updateMobRow = XPRate.CreateRestedPresetRow(AutoMobSubFrame, "Target Rate for Mob Color", -114,
+updateMobRow = XPRate.CreateRestedPresetRow(AutoMobSubFrame, "Target Rate for Mob Color", -94,
   function(val)
     local catKey = mobCategories[mobSelectedCategory].key
     if XPRateControlDB and XPRateControlDB.mobRates then
@@ -410,4 +507,5 @@ function XPRate.updateMobRows()
   if updateMobRow then updateMobRow() end
 end
 
+-- Initialize default selection (1 = Rested XP)
 SelectAutomationSubTab(1)
