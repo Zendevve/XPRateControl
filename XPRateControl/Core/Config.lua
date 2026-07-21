@@ -61,6 +61,8 @@ function XPRate.InitDB()
   if db.mobRates.green  == nil then db.mobRates.green  = 0.5 end
   if db.mobRates.yellow == nil then db.mobRates.yellow = 1.0 end
   if db.mobRates.red    == nil then db.mobRates.red    = 2.0 end
+  if db.autoQuest   == nil then db.autoQuest   = false end
+  if db.questRate   == nil then db.questRate   = 2.0 end
   if db.firstRun == nil then db.firstRun = true end
 
   return db

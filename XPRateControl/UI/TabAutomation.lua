@@ -30,11 +30,17 @@ AutoMobSubFrame:SetSize(308, 172)
 AutoMobSubFrame:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 0, -32)
 AutoMobSubFrame:Hide()
 
+local AutoQuestSubFrame = CreateFrame("Frame", nil, AutomationTabFrame)
+AutoQuestSubFrame:SetSize(308, 172)
+AutoQuestSubFrame:SetPoint("TOPLEFT", AutomationTabFrame, "TOPLEFT", 0, -32)
+AutoQuestSubFrame:Hide()
+
 -- Sub-tab configurations
 local autoSubTabConfig = {
   { name = "AUTO RESTED XP",        icon = "Interface\\AddOns\\XPRateControl\\Textures\\Icon_AutoRested", color = CLR.green },
   { name = "PARTY AUTO SCALING",    icon = "Interface\\AddOns\\XPRateControl\\Textures\\Icon_AutoParty",  color = CLR.cyan },
   { name = "MOB DIFFICULTY SCALING", icon = "Interface\\AddOns\\XPRateControl\\Textures\\Icon_AutoMob",    color = CLR.red },
+  { name = "QUEST TURN-IN SCALING", icon = "Interface\\Icons\\QuestNormal",                               color = CLR.gold },
 }
 
 -- Header Dropdown Container Button
@@ -76,7 +82,7 @@ coverFrame:Hide()
 
 -- Custom Dropdown Popup Menu Frame
 local dropdownMenu = CreateFrame("Frame", "XPRateAutoDropdownMenu", AutomationTabFrame)
-dropdownMenu:SetSize(308, 82)
+dropdownMenu:SetSize(308, 107)
 dropdownMenu:SetPoint("TOPLEFT", headerBtn, "BOTTOMLEFT", 0, -2)
 dropdownMenu:SetFrameStrata("FULLSCREEN_DIALOG")
 dropdownMenu:SetFrameLevel(coverFrame:GetFrameLevel() + 1)
@@ -105,7 +111,8 @@ function XPRate.UpdateDropdownCheckmarks()
   local states = {
     XPRateControlDB.autoRested and true or false,
     XPRateControlDB.autoGroup and true or false,
-    XPRateControlDB.autoMob and true or false
+    XPRateControlDB.autoMob and true or false,
+    XPRateControlDB.autoQuest and true or false
   }
 
   for i, optBtn in ipairs(dropdownOptionBtns) do
@@ -135,16 +142,26 @@ local function SelectAutomationSubTab(tabIndex)
     AutoRestedSubFrame:Show()
     AutoGroupSubFrame:Hide()
     AutoMobSubFrame:Hide()
+    AutoQuestSubFrame:Hide()
   elseif tabIndex == 2 then
     AutoRestedSubFrame:Hide()
     AutoGroupSubFrame:Show()
     AutoMobSubFrame:Hide()
+    AutoQuestSubFrame:Hide()
     if XPRate.UpdatePartyButtonsUI then XPRate.UpdatePartyButtonsUI() end
-  else
+  elseif tabIndex == 3 then
     AutoRestedSubFrame:Hide()
     AutoGroupSubFrame:Hide()
     AutoMobSubFrame:Show()
+    AutoQuestSubFrame:Hide()
     if XPRate.updateMobRows then XPRate.updateMobRows() end
+    if UpdateAutomationStatus then UpdateAutomationStatus() end
+  else
+    AutoRestedSubFrame:Hide()
+    AutoGroupSubFrame:Hide()
+    AutoMobSubFrame:Hide()
+    AutoQuestSubFrame:Show()
+    if XPRate.updateQuestRow then XPRate.updateQuestRow() end
     if UpdateAutomationStatus then UpdateAutomationStatus() end
   end
 
@@ -163,7 +180,7 @@ local function SelectAutomationSubTab(tabIndex)
 end
 
 -- Populate Dropdown Menu Options
-for i = 1, 3 do
+for i = 1, 4 do
   local cfg = autoSubTabConfig[i]
   local optBtn = CreateFrame("Button", nil, dropdownMenu)
   optBtn:SetSize(296, 24)
@@ -535,6 +552,49 @@ function XPRate.updateMobRows()
   XPRate.UpdateMobButtonsUI()
   if updateMobRow then updateMobRow() end
 end
+
+-- ==================== Controls in AutoQuestSubFrame ====================
+local questCheckbox = CreateFrame("CheckButton", "XPRateQuestCheckbox", AutoQuestSubFrame, "UICheckButtonTemplate")
+XPRate.questCheckbox = questCheckbox
+questCheckbox:SetSize(22, 22)
+questCheckbox:SetPoint("TOPLEFT", AutoQuestSubFrame, "TOPLEFT", 12, -6)
+
+local questCheckLabel = AutoQuestSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+questCheckLabel:SetPoint("LEFT", questCheckbox, "RIGHT", 6, 0)
+questCheckLabel:SetText("Auto-switch on Quest Interaction")
+questCheckLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+
+local questStateValue = AutoQuestSubFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+questStateValue:SetPoint("TOPLEFT", AutoQuestSubFrame, "TOPLEFT", 12, -32)
+questStateValue:SetText("Status: Inactive")
+XPRate.questStateValue = questStateValue
+
+questCheckbox:SetScript("OnClick", function(self)
+  local enabled = self:GetChecked() and true or false
+  XPRateControlDB.autoQuest = enabled
+  XPRate.lastAppliedRate = nil
+  XPRate.lastAppliedMode = nil
+  EvaluateAutomation(false, enabled and "Quest Auto ON" or "Quest Auto OFF")
+  if XPRate.UpdateDropdownCheckmarks then XPRate.UpdateDropdownCheckmarks() end
+end)
+
+questCheckbox:SetScript("OnEnter", function(self)
+  ShowTooltip(self, "Automatically switch XP rate when interacting with Quest NPCs.")
+end)
+questCheckbox:SetScript("OnLeave", HideTooltip)
+
+local updateQuestRow = XPRate.CreateRestedPresetRow(AutoQuestSubFrame, "Quest Interaction Rate", -52,
+  function(val)
+    XPRateControlDB.questRate = ClampRate(val)
+    XPRate.lastAppliedRate = nil
+    XPRate.lastAppliedMode = nil
+    EvaluateAutomation(false, "Quest Rate Updated")
+  end,
+  function()
+    return XPRateControlDB and XPRateControlDB.questRate or 2.0
+  end
+)
+XPRate.updateQuestRow = updateQuestRow
 
 -- Initialize default selection (1 = Rested XP)
 SelectAutomationSubTab(1)

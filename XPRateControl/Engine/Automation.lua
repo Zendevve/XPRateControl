@@ -13,6 +13,7 @@ local HideTooltip   = XPRate.HideTooltip
 
 XPRate.lastAppliedRate = nil
 XPRate.lastAppliedMode = nil
+XPRate.isQuestNPCActive = false
 
 -- Group size calculator
 function XPRate.GetCurrentGroupSize()
@@ -82,7 +83,10 @@ function XPRate.EvaluateAutomation(silent, reason)
   local targetRate = nil
   local activeMode = nil
 
-  if db.autoMob and mobCategory and db.mobRates and db.mobRates[mobCategory] then
+  if db.autoQuest and XPRate.isQuestNPCActive then
+    targetRate = db.questRate or 2.00
+    activeMode = "Quest Interaction"
+  elseif db.autoMob and mobCategory and db.mobRates and db.mobRates[mobCategory] then
     targetRate = db.mobRates[mobCategory]
     activeMode = "Mob Difficulty (" .. mobLabel .. ")"
   elseif gSize > 1 and db.autoGroup then
@@ -161,6 +165,19 @@ function XPRate.UpdateAutomationStatus()
     else
       XPRate.mobStateValue:SetText("Target: None / Non-Enemy")
       XPRate.mobStateValue:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+    end
+  end
+
+  if XPRate.questStateValue then
+    if XPRate.isQuestNPCActive and db.autoQuest then
+      XPRate.questStateValue:SetText("Quest NPC Active (" .. FormatRate(db.questRate or 2.0) .. "x)")
+      XPRate.questStateValue:SetTextColor(CLR.gold[1], CLR.gold[2], CLR.gold[3])
+    elseif XPRate.isQuestNPCActive then
+      XPRate.questStateValue:SetText("Quest NPC Active (Auto OFF)")
+      XPRate.questStateValue:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+    else
+      XPRate.questStateValue:SetText("Quest Window Closed")
+      XPRate.questStateValue:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
     end
   end
 
@@ -312,4 +329,19 @@ local mobBackendFrame = CreateFrame("Frame")
 mobBackendFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
 mobBackendFrame:SetScript("OnEvent", function(self, event)
   XPRate.EvaluateAutomation(false, event)
+end)
+
+local questBackendFrame = CreateFrame("Frame")
+questBackendFrame:RegisterEvent("QUEST_DETAIL")
+questBackendFrame:RegisterEvent("QUEST_PROGRESS")
+questBackendFrame:RegisterEvent("QUEST_COMPLETE")
+questBackendFrame:RegisterEvent("QUEST_FINISHED")
+questBackendFrame:SetScript("OnEvent", function(self, event)
+  if event == "QUEST_FINISHED" then
+    XPRate.isQuestNPCActive = false
+    XPRate.EvaluateAutomation(false, "Quest Window Closed")
+  else
+    XPRate.isQuestNPCActive = true
+    XPRate.EvaluateAutomation(false, "Quest Window Opened")
+  end
 end)

@@ -36,11 +36,13 @@ initFrame:SetScript("OnEvent", function(self, event, loadedAddon)
     if XPRate.restedCheckbox then XPRate.restedCheckbox:SetChecked(db.autoRested) end
     if XPRate.groupCheckbox then XPRate.groupCheckbox:SetChecked(db.autoGroup) end
     if XPRate.mobCheckbox then XPRate.mobCheckbox:SetChecked(db.autoMob) end
+    if XPRate.questCheckbox then XPRate.questCheckbox:SetChecked(db.autoQuest) end
 
     if XPRate.updateRestedRow then XPRate.updateRestedRow() end
     if XPRate.updateNormalRow then XPRate.updateNormalRow() end
     if XPRate.updateGroupRow then XPRate.updateGroupRow() end
     if XPRate.updateMobRows then XPRate.updateMobRows() end
+    if XPRate.updateQuestRow then XPRate.updateQuestRow() end
     if UpdateAutomationStatus then UpdateAutomationStatus() end
     if UpdateMinimapButtonPosition then UpdateMinimapButtonPosition() end
 
@@ -49,7 +51,7 @@ initFrame:SetScript("OnEvent", function(self, event, loadedAddon)
       XPRateMinimapButtonBorder:SetVertexColor(rc[1], rc[2], rc[3])
     end
 
-    if db.autoRested or db.autoGroup or db.autoMob then
+    if db.autoRested or db.autoGroup or db.autoMob or db.autoQuest then
       EvaluateAutomation(true, "Addon Init")
     end
 

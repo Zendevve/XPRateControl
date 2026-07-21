@@ -17,6 +17,7 @@ A clean, modern GUI addon for managing experience rate adjustments and Joyous Jo
 - **Apply-on-Change Semantics** — Standalone apply buttons are removed. Value modifications (via slider, checkboxes, presets, or inputs) are committed to the server instantly.
 - **In-Panel Toasts** — Provides non-intrusive, bottom-of-panel toast notifications (e.g., `Sent 1.50x ✓`) to confirm action success.
 - **Rested XP Automation** — Allows auto-switching rates when you enter or leave Rested state. Features preset rows and manual editboxes for both Rested and Normal states.
+- **Quest Turn-in Automation** — Automatically switches to a designated rate (default `2.00x`) when interacting with Quest NPCs and restores your previous rate when the quest window closes.
 - **Escape Key Reversion** — Pressing ESC inside any rate input field cancels the edit, reverting the text and focus without applying unintended changes.
 - **Window Position Persistence** — The panel's drag position is saved in `XPRateControlDB` and restored on login.
 - **Minimap Icon State** — Tint of the minimap button hourglass icon updates dynamically to match the active rate's color. Flashes orange when automation switches rates.
@@ -53,8 +54,8 @@ Interface/AddOns/XPRateControl/
 - Click any **preset button** to instantly set and apply common rates (`0x`, `0.5x`, `1x`, `1.5x`, `2x`).
 
 ### Automation Tab
-- Toggle **Auto-switch rates** to enable Rested state monitoring.
-- Set target rates for both **When Rested** and **When Normal** states using the preset buttons or the manual input fields.
+- Use the sub-tab dropdown menu to configure **Auto Rested XP**, **Party Auto Scaling**, **Mob Difficulty Scaling**, or **Quest Turn-In Scaling**.
+- Toggle **Auto-switch on Quest Interaction** to automatically enforce your Quest Interaction Rate while talking to Quest NPCs.
 
 ### Buffs Tab
 - Check **Enable Joyous Journeys Buff** to toggle the 50% experience gain buff. The large central card lights up when active and desaturates when inactive.
@@ -106,5 +107,7 @@ Settings persist across sessions in the `XPRateControlDB` saved variable:
 - `autoRested` — Enabled state of rested XP auto-switching (default: `false`).
 - `restedRate` — Rate to switch to when Rested (default: `2.0`).
 - `normalRate` — Rate to switch to when Normal (default: `1.0`).
+- `autoQuest` — Enabled state of quest interaction auto-switching (default: `false`).
+- `questRate` — Rate to switch to during Quest interactions (default: `2.0`).
 - `jjEnabled` — Joyous Journeys buff state (default: `true`).
 - `framePos` — Coordinates and anchors of the main panel.
