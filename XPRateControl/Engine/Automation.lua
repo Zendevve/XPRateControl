@@ -156,6 +156,8 @@ function XPRate.EvaluateAutomation(silent, reason)
   local db = XPRateControlDB
   if not db then return end
 
+  local effectiveSilent = silent or (db and db.quietAuto == true)
+
   local gSize = XPRate.GetCurrentGroupSize()
   local isRested = (GetXPExhaustion and GetXPExhaustion() and GetXPExhaustion() > 0) or false
   local mobCategory, mobLabel = XPRate.GetUnitDifficultyCategory("target")
@@ -215,9 +217,9 @@ function XPRate.EvaluateAutomation(silent, reason)
       XPRate.lastAppliedRate = targetRate
       XPRate.lastAppliedMode = activeMode
 
-      ApplyRate(targetRate, silent)
+      ApplyRate(targetRate, effectiveSilent)
 
-      if not silent then
+      if not effectiveSilent then
         if XPRate.FlashMinimapButton then XPRate.FlashMinimapButton(targetRate) end
         local causeMsg = reason and (" [" .. reason .. "]") or ""
         PrintMessage("|cff00ff00Auto-Switched|r -> " .. FormatRate(targetRate) .. "x via |cff00ccff" .. activeMode .. "|r" .. causeMsg)

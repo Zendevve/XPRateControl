@@ -24,6 +24,7 @@ A clean, modern GUI addon for managing experience rate adjustments and Joyous Jo
   - **Mob Difficulty Scaling** — Auto-adjusts rate depending on targeted enemy difficulty color (Gray, Green, Yellow, Orange/Red).
   - **Quest Turn-in Automation** — Automatically switches to a designated rate (default `2.00x`) when interacting with Quest NPCs and restores previous rate on close.
 - **Tiered Priority Hierarchy Evaluator** — Prevents automation conflicts using strict priority order: `Quest NPC > Zone/Instance > Level Bracket > Mob Difficulty > Party Disparity/Scaling > Rested XP`.
+- **Notification Suppression & Quiet Automation Mode (v1.3)** — Fine-grained control over chat messages, toast alerts, and automatic rate-switching notifications. Quiet Automation suppresses all popups and chat messages during automatic rate transitions for seamless gameplay.
 - **Escape Key Reversion** — Pressing ESC inside any rate input field cancels the edit, reverting the text and focus without applying unintended changes.
 - **Window Position Persistence** — Panel drag position is saved in `XPRateControlDB` and restored on login.
 - **Minimap Icon State** — Hourglass icon tint updates dynamically to match active rate color. Flashes orange when automation switches rates.
@@ -70,15 +71,20 @@ Interface/AddOns/XPRateControl/
 ### Rates Tab
 - Drag the **custom slider** or type a value in the **numeric editbox** (0.00 – 2.00). Changes apply immediately on drag release, Enter key press, or focus lost.
 - Click any **preset button** to instantly set and apply common rates (`0x`, `0.5x`, `1x`, `1.5x`, `2x`).
+- Toggle notification settings in the **NOTIFICATIONS** card:
+  - **Chat Messages** — Enable/disable chat box confirmation messages.
+  - **Toast Alerts** — Enable/disable floating toast alerts.
+  - **Quiet Automation** — Suppress all alerts during automated rate switches.
 
 ### Automation Tab
-- Select from **6 automation sub-tabs** using the header dropdown menu:
+- Select from **7 automation sub-tabs** using the header dropdown menu:
   1. **AUTO RESTED XP** — Configure Rested vs Normal rates.
-  2. **PARTY AUTO SCALING & DISPARITY** — Set 1P–5P group rates & party level gap protection.
-  3. **MOB DIFFICULTY SCALING** — Assign rates for Gray, Green, Yellow, and Red target mobs.
-  4. **QUEST TURN-IN SCALING** — Auto-switch rate during quest giver interactions.
-  5. **LEVEL BRACKET SCALING** — Define custom rates across character level ranges.
-  6. **ZONE / INSTANCE SCALING** — Assign rates for Open World, 5-Man Dungeons, Raids, and BGs/Arenas.
+  2. **PARTY SIZE SCALING** — Set 1P–5P group size rates.
+  3. **PARTY LEVEL DISPARITY** — Configure party level gap protection threshold and rate.
+  4. **MOB DIFFICULTY SCALING** — Assign rates for Gray, Green, Yellow, and Red target mobs.
+  5. **QUEST TURN-IN SCALING** — Auto-switch rate during quest giver interactions.
+  6. **LEVEL BRACKET SCALING** — Define custom rates across character level ranges.
+  7. **ZONE / INSTANCE SCALING** — Assign rates for Open World, 5-Man Dungeons, Raids, and BGs/Arenas.
 
 ### Buffs Tab
 - Check **Enable Joyous Journeys Buff** to toggle the 50% experience gain buff. The large central card lights up when active and desaturates when inactive.
@@ -99,6 +105,9 @@ Interface/AddOns/XPRateControl/
 | `/xp mob [on\|off]` | Toggle mob difficulty auto-scaling |
 | `/xp quest [on\|off]` | Toggle quest interaction scaling |
 | `/xp rested [on\|off]` | Toggle rested XP auto-scaling |
+| `/xp chat [on\|off]` | Toggle chat message notifications |
+| `/xp toast [on\|off]` | Toggle toast alert notifications |
+| `/xp quiet [on\|off]` | Toggle quiet automation mode |
 | `/xp status` | Display detailed automation status summary |
 | `/xp minimap` | Toggle visibility of the minimap button |
 | `/xp help` | Display available slash commands |
@@ -134,6 +143,9 @@ Settings persist across sessions in `XPRateControlDB`:
 - `autoMob` & `mobRates` — Enemy difficulty category rates.
 - `autoQuest` & `questRate` — Quest NPC interaction rate.
 - `autoRested`, `restedRate`, `normalRate` — Rested state rates.
+- `showChat` — Enable/disable chat box notifications (default: `true`).
+- `showToast` — Enable/disable floating toast alerts (default: `true`).
+- `quietAuto` — Enable/disable quiet automation mode (default: `false`).
 - `jjEnabled` — Joyous Journeys buff state.
 - `minimapPos` & `showMinimap` — Minimap icon angle and visibility.
 - `framePos` — Panel position coordinates.

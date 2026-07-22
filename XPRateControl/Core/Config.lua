@@ -46,6 +46,9 @@ function XPRate.InitDB()
   if db.showMinimap == nil then db.showMinimap = true end
   if db.lastRate    == nil then db.lastRate    = XPRate.DEFAULT_RATE end
   if db.jjEnabled   == nil then db.jjEnabled   = true end
+  if db.showChat    == nil then db.showChat    = true end
+  if db.showToast   == nil then db.showToast   = true end
+  if db.quietAuto   == nil then db.quietAuto   = false end
   if db.autoRested  == nil then db.autoRested  = false end
   if db.restedRate  == nil then db.restedRate  = 2.0 end
   if db.normalRate  == nil then db.normalRate  = 1.0 end

@@ -61,8 +61,14 @@ function XPRate.ApplyRate(rate, silent)
     XPRateMinimapButtonBorder:SetVertexColor(rc[1], rc[2], rc[3])
   end
 
-  if not silent then
+  local db = XPRateControlDB
+  local showToast = (not silent) and (not db or db.showToast ~= false)
+  local showChat = (not silent) and (not db or db.showChat ~= false)
+
+  if showToast then
     XPRate.ShowToast(string.format("Sent %sx [OK]", XPRate.FormatRate(rate)), false)
+  end
+  if showChat then
     XPRate.PrintMessage("XP rate set to " .. XPRate.FormatRate(rate) .. "x")
   end
 end

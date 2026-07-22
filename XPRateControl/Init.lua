@@ -51,6 +51,7 @@ initFrame:SetScript("OnEvent", function(self, event, arg1, ...)
 
     if XPRate.UpdateUIFromValue then XPRate.UpdateUIFromValue(db.lastRate) end
     if XPRate.UpdateJJUI then XPRate.UpdateJJUI(db.jjEnabled) end
+    if XPRate.UpdateTabRatesUI then XPRate.UpdateTabRatesUI() end
 
     -- Re-synchronize Automation UI State across all 6 sub-tabs
     if XPRate.UpdateAutomationTabUI then
@@ -242,6 +243,10 @@ SlashCmdList["XPRATECONTROL"] = function(msg)
           db.autoQuest and "|cff20cc50ON|r" or "|cffcc3535OFF|r",
           db.autoBracket and "|cff20cc50ON|r" or "|cffcc3535OFF|r",
           db.autoZone and "|cff20cc50ON|r" or "|cffcc3535OFF|r"))
+        printFn(string.format("  Notifications: Chat (%s) | Toast (%s) | Quiet Auto (%s)", 
+          (db.showChat ~= false) and "|cff20cc50ON|r" or "|cffcc3535OFF|r",
+          (db.showToast ~= false) and "|cff20cc50ON|r" or "|cffcc3535OFF|r",
+          (db.quietAuto == true) and "|cff20cc50ON|r" or "|cffcc3535OFF|r"))
         if XPRate.lastAppliedRate then
           local formatFn = XPRate.FormatRate
           printFn(string.format("  Active Rate: |cff00ccff%s|rx via |cff00ff00%s|r", 
@@ -366,6 +371,33 @@ SlashCmdList["XPRATECONTROL"] = function(msg)
     return
   end
 
+  if cmd == "chat" then
+    db.showChat = getToggleState(db.showChat, subArg)
+    if printFn then
+      printFn("Chat notifications " .. (db.showChat and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
+    end
+    if XPRate.UpdateTabRatesUI then XPRate.UpdateTabRatesUI() end
+    return
+  end
+
+  if cmd == "toast" then
+    db.showToast = getToggleState(db.showToast, subArg)
+    if printFn then
+      printFn("Toast notifications " .. (db.showToast and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
+    end
+    if XPRate.UpdateTabRatesUI then XPRate.UpdateTabRatesUI() end
+    return
+  end
+
+  if cmd == "quiet" then
+    db.quietAuto = getToggleState(db.quietAuto, subArg)
+    if printFn then
+      printFn("Quiet automation " .. (db.quietAuto and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
+    end
+    if XPRate.UpdateTabRatesUI then XPRate.UpdateTabRatesUI() end
+    return
+  end
+
   if cmd == "status" then
     if printFn then
       printFn("--- Automation Status Summary ---")
@@ -378,6 +410,10 @@ SlashCmdList["XPRATECONTROL"] = function(msg)
         db.autoQuest and "|cff20cc50ON|r" or "|cffcc3535OFF|r",
         db.autoBracket and "|cff20cc50ON|r" or "|cffcc3535OFF|r",
         db.autoZone and "|cff20cc50ON|r" or "|cffcc3535OFF|r"))
+      printFn(string.format("  Notifications: Chat (%s) | Toast (%s) | Quiet Auto (%s)", 
+        (db.showChat ~= false) and "|cff20cc50ON|r" or "|cffcc3535OFF|r",
+        (db.showToast ~= false) and "|cff20cc50ON|r" or "|cffcc3535OFF|r",
+        (db.quietAuto == true) and "|cff20cc50ON|r" or "|cffcc3535OFF|r"))
       if XPRate.lastAppliedRate then
         local formatFn = XPRate.FormatRate
         printFn(string.format("  Active Rate: |cff00ccff%s|rx via |cff00ff00%s|r", 
@@ -415,6 +451,9 @@ SlashCmdList["XPRATECONTROL"] = function(msg)
       printFn("  |cff00ff00/xp mob [on|off]|r - Toggle mob difficulty auto-scaling")
       printFn("  |cff00ff00/xp quest [on|off]|r - Toggle quest interaction scaling")
       printFn("  |cff00ff00/xp rested [on|off]|r - Toggle rested XP auto-scaling")
+      printFn("  |cff00ff00/xp chat [on|off]|r - Toggle chat message notifications")
+      printFn("  |cff00ff00/xp toast [on|off]|r - Toggle toast alert notifications")
+      printFn("  |cff00ff00/xp quiet [on|off]|r - Toggle quiet automation mode")
       printFn("  |cff00ff00/xp minimap|r - Toggle minimap button visibility")
       printFn("  |cff00ff00/xp status|r - Display automation status summary")
     end
