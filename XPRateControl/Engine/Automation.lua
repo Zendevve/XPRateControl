@@ -17,36 +17,116 @@ XPRate.isQuestNPCActive = false
 
 -- Group size calculator
 function XPRate.GetCurrentGroupSize()
-  local numRaid = GetNumRaidMembers()
+  local numRaid = GetNumRaidMembers and GetNumRaidMembers() or 0
   if numRaid and numRaid > 0 then
     return numRaid
   end
-  local numParty = GetNumPartyMembers()
+  local numParty = GetNumPartyMembers and GetNumPartyMembers() or 0
   if numParty and numParty > 0 then
     return numParty + 1
   end
   return 1
 end
 
+-- Current zone type resolver ("dungeon", "raid", "pvp", "world")
+function XPRate.GetCurrentZoneType()
+  if not IsInInstance then return "world", "Open World" end
+  local inInstance, instanceType = IsInInstance()
+  if not inInstance or not instanceType or instanceType == "none" then
+    return "world", "Open World"
+  elseif instanceType == "party" then
+    return "dungeon", "Dungeon"
+  elseif instanceType == "raid" then
+    return "raid", "Raid"
+  elseif instanceType == "pvp" or instanceType == "arena" then
+    return "pvp", "Battleground / Arena"
+  end
+  return "world", "Open World"
+end
+XPRate.GetZoneCategory = XPRate.GetCurrentZoneType
+
+-- Level bracket matcher against db.bracketRates
+function XPRate.GetMatchingLevelBracket(level)
+  level = level or (UnitLevel and UnitLevel("player")) or 1
+  if type(level) ~= "number" then
+    level = tonumber(level) or 1
+  end
+  local db = XPRateControlDB
+  if not db or type(db.bracketRates) ~= "table" then return nil end
+
+  for i, bracket in ipairs(db.bracketRates) do
+    if type(bracket) == "table" and bracket.min and bracket.max then
+      local bMin = tonumber(bracket.min) or 1
+      local bMax = tonumber(bracket.max) or 80
+      if level >= bMin and level <= bMax then
+        return bracket, i
+      end
+    end
+  end
+  return nil
+end
+
+-- Max party level disparity calculator
+function XPRate.GetMaxPartyLevelDisparity()
+  local gSize = XPRate.GetCurrentGroupSize()
+  local playerLevel = (UnitLevel and UnitLevel("player")) or 1
+  if gSize <= 1 then return 0, playerLevel, playerLevel end
+
+  local minLevel = playerLevel
+  local maxLevel = playerLevel
+
+  local numRaid = GetNumRaidMembers and GetNumRaidMembers() or 0
+  if numRaid and numRaid > 0 then
+    for i = 1, numRaid do
+      local unit = "raid" .. i
+      if UnitExists and UnitExists(unit) and (not UnitIsConnected or UnitIsConnected(unit)) then
+        local lvl = UnitLevel(unit)
+        if lvl and lvl > 0 then
+          if lvl < minLevel then minLevel = lvl end
+          if lvl > maxLevel then maxLevel = lvl end
+        end
+      end
+    end
+  else
+    local numParty = GetNumPartyMembers and GetNumPartyMembers() or 0
+    if numParty and numParty > 0 then
+      for i = 1, numParty do
+        local unit = "party" .. i
+        if UnitExists and UnitExists(unit) and (not UnitIsConnected or UnitIsConnected(unit)) then
+          local lvl = UnitLevel(unit)
+          if lvl and lvl > 0 then
+            if lvl < minLevel then minLevel = lvl end
+            if lvl > maxLevel then maxLevel = lvl end
+          end
+        end
+      end
+    end
+  end
+
+  return maxLevel - minLevel, minLevel, maxLevel
+end
+XPRate.GetPartyLevelDisparity = XPRate.GetMaxPartyLevelDisparity
+
 -- Difficulty category resolver (Gray, Green, Yellow, Orange/Red) for target unit
 function XPRate.GetUnitDifficultyCategory(unit)
   unit = unit or "target"
-  if not UnitExists(unit) or not UnitCanAttack("player", unit) or UnitIsDead(unit) or UnitIsPlayer(unit) then
+  if not UnitExists or not UnitExists(unit) or not UnitCanAttack or not UnitCanAttack("player", unit) or (UnitIsDead and UnitIsDead(unit)) or (UnitIsPlayer and UnitIsPlayer(unit)) then
     return nil
   end
 
   local mobLevel = UnitLevel(unit)
   local playerLevel = UnitLevel("player")
+  if not mobLevel or not playerLevel then return nil end
 
   if mobLevel <= 0 or (mobLevel - playerLevel) >= 3 then
     return "red", "Orange / Red"
   elseif (mobLevel - playerLevel) >= -2 and (mobLevel - playerLevel) <= 2 then
     return "yellow", "Yellow"
   else
-    local color = GetQuestDifficultyColor(mobLevel)
-    if color == QuestDifficultyColors["green"] then
+    local color = GetQuestDifficultyColor and GetQuestDifficultyColor(mobLevel)
+    if QuestDifficultyColors and color == QuestDifficultyColors["green"] then
       return "green", "Green"
-    elseif color == QuestDifficultyColors["trivial"] or color == QuestDifficultyColors["header"] then
+    elseif QuestDifficultyColors and (color == QuestDifficultyColors["trivial"] or color == QuestDifficultyColors["header"]) then
       return "gray", "Gray"
     else
       local grayThreshold = 0
@@ -71,36 +151,62 @@ function XPRate.GetUnitDifficultyCategory(unit)
   end
 end
 
--- Evaluates auto-rested, party auto-scaling, and mob difficulty scaling state
+-- Priority Evaluator: strict hierarchy (Quest > Zone > Bracket > Mob > Party Disparity/Scaling > Rested)
 function XPRate.EvaluateAutomation(silent, reason)
   local db = XPRateControlDB
   if not db then return end
 
   local gSize = XPRate.GetCurrentGroupSize()
-  local isRested = (GetXPExhaustion() and GetXPExhaustion() > 0) or false
+  local isRested = (GetXPExhaustion and GetXPExhaustion() and GetXPExhaustion() > 0) or false
   local mobCategory, mobLabel = XPRate.GetUnitDifficultyCategory("target")
+  local playerLevel = (UnitLevel and UnitLevel("player")) or 1
 
   local targetRate = nil
   local activeMode = nil
 
+  -- 1. Quest Interaction
   if db.autoQuest and XPRate.isQuestNPCActive then
     targetRate = db.questRate or 2.00
     activeMode = "Quest Interaction"
-  elseif db.autoMob and mobCategory and db.mobRates and db.mobRates[mobCategory] then
+
+  -- 2. Zone / Instance Type
+  elseif db.autoZone and db.zoneRates and db.zoneRates[XPRate.GetCurrentZoneType()] ~= nil then
+    local zoneCat, zoneLabel = XPRate.GetCurrentZoneType()
+    targetRate = db.zoneRates[zoneCat]
+    activeMode = "Zone (" .. zoneLabel .. ")"
+
+  -- 3. Level Brackets
+  elseif db.autoBracket and XPRate.GetMatchingLevelBracket(playerLevel) and XPRate.GetMatchingLevelBracket(playerLevel).rate ~= nil then
+    local bracket = XPRate.GetMatchingLevelBracket(playerLevel)
+    targetRate = bracket.rate
+    activeMode = string.format("Level Bracket (%d-%d)", bracket.min or 1, bracket.max or 80)
+
+  -- 4. Mob Difficulty
+  elseif db.autoMob and mobCategory and db.mobRates and db.mobRates[mobCategory] ~= nil then
     targetRate = db.mobRates[mobCategory]
     activeMode = "Mob Difficulty (" .. mobLabel .. ")"
-  elseif gSize > 1 and db.autoGroup then
-    local mappedSize = math.min(gSize, 5)
-    targetRate = (db.groupRates and db.groupRates[mappedSize]) or 1.00
-    local stateText = (gSize >= 5) and "5P Group" or (gSize .. "P Group")
-    activeMode = "Party Scaling (" .. stateText .. ")"
+
+  -- 5. Party Scaling / Disparity
+  elseif db.autoDisparity and gSize > 1 and XPRate.GetMaxPartyLevelDisparity() > (db.disparityThreshold or 5) then
+    targetRate = db.disparityRate or 0.50
+    activeMode = string.format("Party Disparity (>%d Levels)", db.disparityThreshold or 5)
+
+  elseif db.autoGroup then
+    if gSize > 1 then
+      local mappedSize = math.min(gSize, 5)
+      targetRate = (db.groupRates and db.groupRates[mappedSize]) or 1.00
+      local stateText = (gSize >= 5) and "5P Group" or (gSize .. "P Group")
+      activeMode = "Party Scaling (" .. stateText .. ")"
+    else
+      targetRate = (db.groupRates and db.groupRates[1]) or 1.00
+      activeMode = "Party Scaling (Solo)"
+    end
+
+  -- 6. Rested XP
   elseif db.autoRested then
     targetRate = isRested and db.restedRate or db.normalRate
     local stateStr = isRested and "Rested" or "Normal"
     activeMode = "Auto Rested (" .. stateStr .. ")"
-  elseif db.autoGroup then
-    targetRate = (db.groupRates and db.groupRates[1]) or 1.00
-    activeMode = "Party Scaling (Solo)"
   end
 
   if targetRate then
@@ -129,7 +235,7 @@ function XPRate.UpdateAutomationStatus()
   if not db then return end
 
   local gSize = XPRate.GetCurrentGroupSize()
-  local isRested = (GetXPExhaustion() and GetXPExhaustion() > 0) or false
+  local isRested = (GetXPExhaustion and GetXPExhaustion() and GetXPExhaustion() > 0) or false
 
   if XPRate.restedStateValue then
     if isRested then
@@ -149,6 +255,21 @@ function XPRate.UpdateAutomationStatus()
     else
       XPRate.groupStateValue:SetText("Solo (1 Player)")
       XPRate.groupStateValue:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+    end
+  end
+
+  if XPRate.disparityStateValue then
+    local disparity = XPRate.GetMaxPartyLevelDisparity()
+    local threshold = db.disparityThreshold or 5
+    if gSize <= 1 then
+      XPRate.disparityStateValue:SetText("Solo (No Party Members)")
+      XPRate.disparityStateValue:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+    elseif disparity > threshold then
+      XPRate.disparityStateValue:SetText(string.format("Disparity Triggered: %d Lvs Gap (>%d Threshold)", disparity, threshold))
+      XPRate.disparityStateValue:SetTextColor(CLR.red[1], CLR.red[2], CLR.red[3])
+    else
+      XPRate.disparityStateValue:SetText(string.format("Party Gap: %d Lvs (Threshold: %d Lvs)", disparity, threshold))
+      XPRate.disparityStateValue:SetTextColor(CLR.green[1], CLR.green[2], CLR.green[3])
     end
   end
 
@@ -178,6 +299,35 @@ function XPRate.UpdateAutomationStatus()
     else
       XPRate.questStateValue:SetText("Quest Window Closed")
       XPRate.questStateValue:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+    end
+  end
+
+  if XPRate.zoneStateValue then
+    local zoneCat, zoneLabel = XPRate.GetCurrentZoneType()
+    local rate = db.zoneRates and db.zoneRates[zoneCat] or 1.00
+    if db.autoZone then
+      XPRate.zoneStateValue:SetText(string.format("Zone: %s (%sx)", zoneLabel, FormatRate(rate)))
+      XPRate.zoneStateValue:SetTextColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3])
+    else
+      XPRate.zoneStateValue:SetText(string.format("Zone: %s (Auto OFF)", zoneLabel))
+      XPRate.zoneStateValue:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+    end
+  end
+
+  if XPRate.bracketStateValue then
+    local playerLevel = (UnitLevel and UnitLevel("player")) or 1
+    local bracket = XPRate.GetMatchingLevelBracket(playerLevel)
+    if bracket then
+      if db.autoBracket then
+        XPRate.bracketStateValue:SetText(string.format("Bracket: Lv %d-%d (%sx)", bracket.min or 1, bracket.max or 80, FormatRate(bracket.rate or 1.0)))
+        XPRate.bracketStateValue:SetTextColor(CLR.green[1], CLR.green[2], CLR.green[3])
+      else
+        XPRate.bracketStateValue:SetText(string.format("Bracket: Lv %d-%d (Auto OFF)", bracket.min or 1, bracket.max or 80))
+        XPRate.bracketStateValue:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
+      end
+    else
+      XPRate.bracketStateValue:SetText("Bracket: Out of Range")
+      XPRate.bracketStateValue:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
     end
   end
 
@@ -321,8 +471,13 @@ local groupBackendFrame = CreateFrame("Frame")
 groupBackendFrame:RegisterEvent("PARTY_MEMBERS_CHANGED")
 groupBackendFrame:RegisterEvent("RAID_ROSTER_UPDATE")
 groupBackendFrame:RegisterEvent("PARTY_LEADER_CHANGED")
-groupBackendFrame:SetScript("OnEvent", function(self, event)
-  XPRate.EvaluateAutomation(false, event)
+groupBackendFrame:RegisterEvent("UNIT_LEVEL")
+groupBackendFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+groupBackendFrame:SetScript("OnEvent", function(self, event, unit)
+  if event == "UNIT_LEVEL" and unit and unit ~= "player" and not string.find(unit, "party") and not string.find(unit, "raid") then
+    return
+  end
+  XPRate.EvaluateAutomation(event == "PLAYER_ENTERING_WORLD", event)
 end)
 
 local mobBackendFrame = CreateFrame("Frame")
@@ -332,6 +487,7 @@ mobBackendFrame:SetScript("OnEvent", function(self, event)
 end)
 
 local questBackendFrame = CreateFrame("Frame")
+questBackendFrame:RegisterEvent("QUEST_GREETING")
 questBackendFrame:RegisterEvent("QUEST_DETAIL")
 questBackendFrame:RegisterEvent("QUEST_PROGRESS")
 questBackendFrame:RegisterEvent("QUEST_COMPLETE")
@@ -344,4 +500,20 @@ questBackendFrame:SetScript("OnEvent", function(self, event)
     XPRate.isQuestNPCActive = true
     XPRate.EvaluateAutomation(false, "Quest Window Opened")
   end
+end)
+
+local zoneBackendFrame = CreateFrame("Frame")
+zoneBackendFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+zoneBackendFrame:RegisterEvent("ZONE_CHANGED")
+zoneBackendFrame:RegisterEvent("ZONE_CHANGED_INDOORS")
+zoneBackendFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+zoneBackendFrame:SetScript("OnEvent", function(self, event)
+  XPRate.EvaluateAutomation(event == "PLAYER_ENTERING_WORLD", event)
+end)
+
+local bracketBackendFrame = CreateFrame("Frame")
+bracketBackendFrame:RegisterEvent("PLAYER_LEVEL_UP")
+bracketBackendFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+bracketBackendFrame:SetScript("OnEvent", function(self, event)
+  XPRate.EvaluateAutomation(event == "PLAYER_ENTERING_WORLD", event)
 end)

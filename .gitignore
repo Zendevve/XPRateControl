@@ -1,3 +1,4 @@
 Rollbot/
 Rollbot
 *.SavedVariables
+.agents/

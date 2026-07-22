@@ -1,9 +1,9 @@
 -- Init.lua — Addon entrypoint, event dispatcher, and /xp slash commands for XPRateControl
 local addonName, XPRate = ...
 
-local RATE_MIN                    = XPRate.RATE_MIN
-local RATE_MAX                    = XPRate.RATE_MAX
-local DEFAULT_RATE                = XPRate.DEFAULT_RATE
+local RATE_MIN                    = XPRate.RATE_MIN or 0.1
+local RATE_MAX                    = XPRate.RATE_MAX or 2.0
+local DEFAULT_RATE                = XPRate.DEFAULT_RATE or 1.0
 local PrintMessage                = XPRate.PrintMessage
 local RateColor                  = XPRate.RateColor
 local ApplyRate                  = XPRate.ApplyRate
@@ -14,16 +14,34 @@ local UpdateAutomationStatus      = XPRate.UpdateAutomationStatus
 local UpdateMinimapButtonPosition = XPRate.UpdateMinimapButtonPosition
 local SetActiveTab                = XPRate.SetActiveTab
 
-local initFrame = CreateFrame("Frame")
+local initFrame = CreateFrame("Frame", "XPRateEventFrame")
 initFrame:RegisterEvent("ADDON_LOADED")
 initFrame:RegisterEvent("PLAYER_LOGIN")
-initFrame:SetScript("OnEvent", function(self, event, loadedAddon)
+initFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+initFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
+initFrame:RegisterEvent("ZONE_CHANGED")
+initFrame:RegisterEvent("ZONE_CHANGED_INDOORS")
+initFrame:RegisterEvent("PLAYER_LEVEL_UP")
+initFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
+initFrame:RegisterEvent("PARTY_MEMBERS_CHANGED")
+initFrame:RegisterEvent("RAID_ROSTER_UPDATE")
+initFrame:RegisterEvent("PARTY_LEADER_CHANGED")
+initFrame:RegisterEvent("UNIT_LEVEL")
+initFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
+initFrame:RegisterEvent("QUEST_GREETING")
+initFrame:RegisterEvent("QUEST_DETAIL")
+initFrame:RegisterEvent("QUEST_PROGRESS")
+initFrame:RegisterEvent("QUEST_COMPLETE")
+initFrame:RegisterEvent("QUEST_FINISHED")
+initFrame:RegisterEvent("UPDATE_EXHAUSTION")
+
+initFrame:SetScript("OnEvent", function(self, event, arg1, ...)
   if event == "ADDON_LOADED" then
-    if loadedAddon ~= addonName and loadedAddon ~= "XPRateControl" then return end
+    if arg1 ~= addonName and arg1 ~= "XPRateControl" then return end
 
     local db = XPRate.InitDB()
 
-    -- Position restoration
+    -- Window Position restoration
     if db.framePos and XPRate.frame then
       XPRate.frame:ClearAllPoints()
       XPRate.frame:SetPoint(db.framePos.point, UIParent, db.framePos.relativePoint, db.framePos.xOfs, db.framePos.yOfs)
@@ -31,28 +49,45 @@ initFrame:SetScript("OnEvent", function(self, event, loadedAddon)
       XPRate.frame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     end
 
-    if UpdateUIFromValue then UpdateUIFromValue(db.lastRate) end
-    if UpdateJJUI then UpdateJJUI(db.jjEnabled) end
-    if XPRate.restedCheckbox then XPRate.restedCheckbox:SetChecked(db.autoRested) end
-    if XPRate.groupCheckbox then XPRate.groupCheckbox:SetChecked(db.autoGroup) end
-    if XPRate.mobCheckbox then XPRate.mobCheckbox:SetChecked(db.autoMob) end
-    if XPRate.questCheckbox then XPRate.questCheckbox:SetChecked(db.autoQuest) end
+    if XPRate.UpdateUIFromValue then XPRate.UpdateUIFromValue(db.lastRate) end
+    if XPRate.UpdateJJUI then XPRate.UpdateJJUI(db.jjEnabled) end
 
-    if XPRate.updateRestedRow then XPRate.updateRestedRow() end
-    if XPRate.updateNormalRow then XPRate.updateNormalRow() end
-    if XPRate.updateGroupRow then XPRate.updateGroupRow() end
-    if XPRate.updateMobRows then XPRate.updateMobRows() end
-    if XPRate.updateQuestRow then XPRate.updateQuestRow() end
-    if UpdateAutomationStatus then UpdateAutomationStatus() end
-    if UpdateMinimapButtonPosition then UpdateMinimapButtonPosition() end
+    -- Re-synchronize Automation UI State across all 6 sub-tabs
+    if XPRate.UpdateAutomationTabUI then
+      XPRate.UpdateAutomationTabUI()
+    else
+      if XPRate.restedCheckbox then XPRate.restedCheckbox:SetChecked(db.autoRested) end
+      if XPRate.groupCheckbox then XPRate.groupCheckbox:SetChecked(db.autoGroup) end
+      if XPRate.disparityCheckbox then XPRate.disparityCheckbox:SetChecked(db.autoDisparity) end
+      if XPRate.mobCheckbox then XPRate.mobCheckbox:SetChecked(db.autoMob) end
+      if XPRate.questCheckbox then XPRate.questCheckbox:SetChecked(db.autoQuest) end
+      if XPRate.bracketCheckbox then XPRate.bracketCheckbox:SetChecked(db.autoBracket) end
+      if XPRate.zoneCheckbox then XPRate.zoneCheckbox:SetChecked(db.autoZone) end
 
-    if db.lastRate and XPRateMinimapButtonBorder then
-      local rc = RateColor(db.lastRate)
-      XPRateMinimapButtonBorder:SetVertexColor(rc[1], rc[2], rc[3])
+      if XPRate.updateRestedRow then XPRate.updateRestedRow() end
+      if XPRate.updateNormalRow then XPRate.updateNormalRow() end
+      if XPRate.updateGroupRow then XPRate.updateGroupRow() end
+      if XPRate.updateMobRows then XPRate.updateMobRows() end
+      if XPRate.updateQuestRow then XPRate.updateQuestRow() end
+      if XPRate.UpdateAutomationStatus then XPRate.UpdateAutomationStatus() end
     end
 
-    if db.autoRested or db.autoGroup or db.autoMob or db.autoQuest then
-      EvaluateAutomation(true, "Addon Init")
+    if XPRate.UpdateMinimapButtonPosition then XPRate.UpdateMinimapButtonPosition() end
+
+    if db.lastRate and XPRateMinimapButtonBorder then
+      local getColor = XPRate.RateColor or RateColor
+      local rc = getColor and getColor(db.lastRate)
+      if rc then
+        XPRateMinimapButtonBorder:SetVertexColor(rc[1], rc[2], rc[3])
+      end
+    end
+
+    -- Initial silent automation evaluation
+    if db.autoRested or db.autoGroup or db.autoDisparity or db.autoMob or db.autoQuest or db.autoBracket or db.autoZone then
+      local eval = XPRate.EvaluateAutomation or EvaluateAutomation
+      if eval then
+        eval(true, "Addon Init")
+      end
     end
 
     if XPRate.minimapButton then
@@ -63,27 +98,99 @@ initFrame:SetScript("OnEvent", function(self, event, loadedAddon)
       end
     end
 
-    if SetActiveTab then SetActiveTab(1) end
+    if XPRate.SetActiveTab then XPRate.SetActiveTab(1) end
 
     -- First load banner
     if db.firstRun then
-      PrintMessage("Welcome to XP Rate Control v1.1!")
-      PrintMessage("  - Click minimap hourglass icon to toggle settings panel.")
-      PrintMessage("  - Right-click minimap icon for quick rate adjustments.")
-      PrintMessage("  - Changes are applied instantly. Check out the new tabs!")
+      local printFn = XPRate.PrintMessage or PrintMessage
+      if printFn then
+        printFn("Welcome to XP Rate Control v1.2!")
+        printFn("  - Click minimap hourglass icon to toggle settings panel.")
+        printFn("  - Right-click minimap icon for quick rate adjustments.")
+        printFn("  - Changes are applied instantly. Check out the expanded automation sub-tabs!")
+      end
       db.firstRun = false
     else
-      PrintMessage("Loaded. Type |cff00ff00/xp|r to open, |cff00ff00/xp help|r for commands.")
+      local printFn = XPRate.PrintMessage or PrintMessage
+      if printFn then
+        printFn("Loaded v1.2. Type |cff00ff00/xp|r to open, |cff00ff00/xp help|r for commands.")
+      end
     end
-  elseif event == "PLAYER_LOGIN" then
-    if UpdateMinimapButtonPosition then UpdateMinimapButtonPosition() end
+
+  elseif event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
+    if XPRate.UpdateMinimapButtonPosition then XPRate.UpdateMinimapButtonPosition() end
+    if XPRate.UpdateAutomationTabUI then XPRate.UpdateAutomationTabUI() end
+    local eval = XPRate.EvaluateAutomation or EvaluateAutomation
+    if eval then
+      eval(true, event)
+    end
+
+  elseif event == "ZONE_CHANGED_NEW_AREA" or event == "ZONE_CHANGED" or event == "ZONE_CHANGED_INDOORS" then
+    if XPRate.UpdateAutomationTabUI then XPRate.UpdateAutomationTabUI() end
+    local eval = XPRate.EvaluateAutomation or EvaluateAutomation
+    if eval then
+      eval(false, event)
+    end
+
+  elseif event == "PLAYER_LEVEL_UP" then
+    if XPRate.UpdateAutomationTabUI then XPRate.UpdateAutomationTabUI() end
+    local eval = XPRate.EvaluateAutomation or EvaluateAutomation
+    if eval then
+      eval(false, "PLAYER_LEVEL_UP")
+    end
+
+  elseif event == "GROUP_ROSTER_UPDATE" or event == "PARTY_MEMBERS_CHANGED" or event == "RAID_ROSTER_UPDATE" or event == "PARTY_LEADER_CHANGED" then
+    if XPRate.UpdateAutomationTabUI then XPRate.UpdateAutomationTabUI() end
+    local eval = XPRate.EvaluateAutomation or EvaluateAutomation
+    if eval then
+      eval(false, event)
+    end
+
+  elseif event == "UNIT_LEVEL" then
+    if not arg1 or string.find(arg1, "party") or string.find(arg1, "raid") or arg1 == "player" or arg1 == "target" then
+      if XPRate.UpdateAutomationTabUI then XPRate.UpdateAutomationTabUI() end
+      local eval = XPRate.EvaluateAutomation or EvaluateAutomation
+      if eval then
+        eval(false, "UNIT_LEVEL")
+      end
+    end
+
+  elseif event == "PLAYER_TARGET_CHANGED" then
+    if XPRate.UpdateAutomationTabUI then XPRate.UpdateAutomationTabUI() end
+    local eval = XPRate.EvaluateAutomation or EvaluateAutomation
+    if eval then
+      eval(false, "PLAYER_TARGET_CHANGED")
+    end
+
+  elseif event == "QUEST_GREETING" or event == "QUEST_DETAIL" or event == "QUEST_PROGRESS" or event == "QUEST_COMPLETE" then
+    XPRate.isQuestNPCActive = true
+    if XPRate.UpdateAutomationTabUI then XPRate.UpdateAutomationTabUI() end
+    local eval = XPRate.EvaluateAutomation or EvaluateAutomation
+    if eval then
+      eval(false, event)
+    end
+
+  elseif event == "QUEST_FINISHED" then
+    XPRate.isQuestNPCActive = false
+    if XPRate.UpdateAutomationTabUI then XPRate.UpdateAutomationTabUI() end
+    local eval = XPRate.EvaluateAutomation or EvaluateAutomation
+    if eval then
+      eval(false, "QUEST_FINISHED")
+    end
+
+  elseif event == "UPDATE_EXHAUSTION" then
+    if XPRate.UpdateAutomationTabUI then XPRate.UpdateAutomationTabUI() end
+    local eval = XPRate.EvaluateAutomation or EvaluateAutomation
+    if eval then
+      eval(false, "UPDATE_EXHAUSTION")
+    end
   end
 end)
 
--- Slash Command: /xp
+-- Slash Command Handler: /xp
 SLASH_XPRATECONTROL1 = "/xp"
 SlashCmdList["XPRATECONTROL"] = function(msg)
-  msg = strtrim(msg)
+  msg = strtrim(msg or "")
 
   if msg == "" then
     if XPRate.frame then
@@ -96,53 +203,237 @@ SlashCmdList["XPRATECONTROL"] = function(msg)
     return
   end
 
-  if msg:lower() == "minimap" then
-    if XPRateControlDB then
-      XPRateControlDB.showMinimap = not XPRateControlDB.showMinimap
-      if XPRate.minimapButton then
-        if XPRateControlDB.showMinimap then
-          XPRate.minimapButton:Show()
-          PrintMessage("Minimap button shown.")
-        else
-          XPRate.minimapButton:Hide()
-          PrintMessage("Minimap button hidden.")
+  local cmd, subArg = msg:match("^(%S+)%s*(.-)$")
+  cmd = cmd and cmd:lower() or ""
+  subArg = subArg and subArg:lower() or ""
+
+  local db = XPRateControlDB
+  if not db then
+    db = XPRate.InitDB and XPRate.InitDB() or {}
+  end
+
+  local printFn = XPRate.PrintMessage or PrintMessage
+  local eval = XPRate.EvaluateAutomation or EvaluateAutomation
+  local updateUI = XPRate.UpdateAutomationTabUI
+
+  local function getToggleState(currentVal, arg)
+    if not arg or arg == "" then
+      return not currentVal
+    end
+    if arg == "on" or arg == "1" or arg == "true" or arg == "enable" then
+      return true
+    elseif arg == "off" or arg == "0" or arg == "false" or arg == "disable" then
+      return false
+    else
+      return not currentVal
+    end
+  end
+
+  if cmd == "auto" then
+    if subArg == "status" then
+      if printFn then
+        printFn("--- Automation Status Summary ---")
+        printFn(string.format("  Rested: %s | Group: %s | Disparity: %s", 
+          db.autoRested and "|cff20cc50ON|r" or "|cffcc3535OFF|r",
+          db.autoGroup and "|cff20cc50ON|r" or "|cffcc3535OFF|r",
+          db.autoDisparity and "|cff20cc50ON|r" or "|cffcc3535OFF|r"))
+        printFn(string.format("  Mob: %s | Quest: %s | Bracket: %s | Zone: %s",
+          db.autoMob and "|cff20cc50ON|r" or "|cffcc3535OFF|r",
+          db.autoQuest and "|cff20cc50ON|r" or "|cffcc3535OFF|r",
+          db.autoBracket and "|cff20cc50ON|r" or "|cffcc3535OFF|r",
+          db.autoZone and "|cff20cc50ON|r" or "|cffcc3535OFF|r"))
+        if XPRate.lastAppliedRate then
+          local formatFn = XPRate.FormatRate
+          printFn(string.format("  Active Rate: |cff00ccff%s|rx via |cff00ff00%s|r", 
+            formatFn and formatFn(XPRate.lastAppliedRate) or tostring(XPRate.lastAppliedRate),
+            XPRate.lastAppliedMode or "Manual"))
         end
+      end
+      return
+    end
+
+    local newState
+    if subArg == "on" or subArg == "1" or subArg == "true" or subArg == "enable" then
+      newState = true
+    elseif subArg == "off" or subArg == "0" or subArg == "false" or subArg == "disable" then
+      newState = false
+    else
+      local isAnyActive = db.autoRested or db.autoGroup or db.autoDisparity or db.autoMob or db.autoQuest or db.autoBracket or db.autoZone
+      newState = not isAnyActive
+    end
+
+    db.autoRested = newState
+    db.autoGroup = newState
+    db.autoDisparity = newState
+    db.autoMob = newState
+    db.autoQuest = newState
+    db.autoBracket = newState
+    db.autoZone = newState
+
+    if printFn then
+      printFn("All automation modules " .. (newState and "|cff20cc50enabled|r" or "|cffcc3535disabled|r") .. ".")
+    end
+
+    XPRate.lastAppliedRate = nil
+    XPRate.lastAppliedMode = nil
+    if eval then eval(false, "Slash Cmd Master Auto Toggle") end
+    if updateUI then updateUI() end
+    return
+  end
+
+  if cmd == "zone" then
+    db.autoZone = getToggleState(db.autoZone, subArg)
+    if printFn then
+      printFn("Zone XP auto-scaling " .. (db.autoZone and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
+    end
+    XPRate.lastAppliedRate = nil
+    XPRate.lastAppliedMode = nil
+    if eval then eval(false, "Slash Cmd Zone Toggle") end
+    if updateUI then updateUI() end
+    return
+  end
+
+  if cmd == "bracket" then
+    db.autoBracket = getToggleState(db.autoBracket, subArg)
+    if printFn then
+      printFn("Level Bracket XP auto-scaling " .. (db.autoBracket and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
+    end
+    XPRate.lastAppliedRate = nil
+    XPRate.lastAppliedMode = nil
+    if eval then eval(false, "Slash Cmd Bracket Toggle") end
+    if updateUI then updateUI() end
+    return
+  end
+
+  if cmd == "disparity" then
+    db.autoDisparity = getToggleState(db.autoDisparity, subArg)
+    if printFn then
+      printFn("Party Level Disparity protection " .. (db.autoDisparity and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
+    end
+    XPRate.lastAppliedRate = nil
+    XPRate.lastAppliedMode = nil
+    if eval then eval(false, "Slash Cmd Disparity Toggle") end
+    if updateUI then updateUI() end
+    return
+  end
+
+  if cmd == "group" then
+    db.autoGroup = getToggleState(db.autoGroup, subArg)
+    if XPRate.groupCheckbox then XPRate.groupCheckbox:SetChecked(db.autoGroup) end
+    if printFn then
+      printFn("Party XP auto-scaling " .. (db.autoGroup and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
+    end
+    XPRate.lastAppliedRate = nil
+    XPRate.lastAppliedMode = nil
+    if eval then eval(false, "Slash Cmd Group Toggle") end
+    if updateUI then updateUI() end
+    return
+  end
+
+  if cmd == "mob" then
+    db.autoMob = getToggleState(db.autoMob, subArg)
+    if printFn then
+      printFn("Mob Difficulty XP auto-scaling " .. (db.autoMob and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
+    end
+    XPRate.lastAppliedRate = nil
+    XPRate.lastAppliedMode = nil
+    if eval then eval(false, "Slash Cmd Mob Toggle") end
+    if updateUI then updateUI() end
+    return
+  end
+
+  if cmd == "quest" then
+    db.autoQuest = getToggleState(db.autoQuest, subArg)
+    if printFn then
+      printFn("Quest Interaction XP scaling " .. (db.autoQuest and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
+    end
+    XPRate.lastAppliedRate = nil
+    XPRate.lastAppliedMode = nil
+    if eval then eval(false, "Slash Cmd Quest Toggle") end
+    if updateUI then updateUI() end
+    return
+  end
+
+  if cmd == "rested" then
+    db.autoRested = getToggleState(db.autoRested, subArg)
+    if printFn then
+      printFn("Rested XP auto-scaling " .. (db.autoRested and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
+    end
+    XPRate.lastAppliedRate = nil
+    XPRate.lastAppliedMode = nil
+    if eval then eval(false, "Slash Cmd Rested Toggle") end
+    if updateUI then updateUI() end
+    return
+  end
+
+  if cmd == "status" then
+    if printFn then
+      printFn("--- Automation Status Summary ---")
+      printFn(string.format("  Rested: %s | Group: %s | Disparity: %s", 
+        db.autoRested and "|cff20cc50ON|r" or "|cffcc3535OFF|r",
+        db.autoGroup and "|cff20cc50ON|r" or "|cffcc3535OFF|r",
+        db.autoDisparity and "|cff20cc50ON|r" or "|cffcc3535OFF|r"))
+      printFn(string.format("  Mob: %s | Quest: %s | Bracket: %s | Zone: %s",
+        db.autoMob and "|cff20cc50ON|r" or "|cffcc3535OFF|r",
+        db.autoQuest and "|cff20cc50ON|r" or "|cffcc3535OFF|r",
+        db.autoBracket and "|cff20cc50ON|r" or "|cffcc3535OFF|r",
+        db.autoZone and "|cff20cc50ON|r" or "|cffcc3535OFF|r"))
+      if XPRate.lastAppliedRate then
+        local formatFn = XPRate.FormatRate
+        printFn(string.format("  Active Rate: |cff00ccff%s|rx via |cff00ff00%s|r", 
+          formatFn and formatFn(XPRate.lastAppliedRate) or tostring(XPRate.lastAppliedRate),
+          XPRate.lastAppliedMode or "Manual"))
       end
     end
     return
   end
 
-  if msg:lower() == "group" then
-    if XPRateControlDB then
-      XPRateControlDB.autoGroup = not XPRateControlDB.autoGroup
-      if XPRate.groupCheckbox then XPRate.groupCheckbox:SetChecked(XPRateControlDB.autoGroup) end
-      PrintMessage("Party XP auto-scaling " .. (XPRateControlDB.autoGroup and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
-      XPRate.lastAppliedRate = nil
-      XPRate.lastAppliedMode = nil
-      EvaluateAutomation(false, "Slash Cmd Toggle")
+  if cmd == "minimap" then
+    db.showMinimap = not db.showMinimap
+    if XPRate.minimapButton then
+      if db.showMinimap then
+        XPRate.minimapButton:Show()
+        if printFn then printFn("Minimap button shown.") end
+      else
+        XPRate.minimapButton:Hide()
+        if printFn then printFn("Minimap button hidden.") end
+      end
     end
     return
   end
 
-  if msg:lower() == "help" then
-    PrintMessage("Commands:")
-    PrintMessage("  |cff00ff00/xp|r - Toggle panel")
-    PrintMessage("  |cff00ff00/xp <0-2>|r - Set XP rate (e.g. /xp 1.25)")
-    PrintMessage("  |cff00ff00/xp group|r - Toggle party auto-scaling")
-    PrintMessage("  |cff00ff00/xp minimap|r - Toggle minimap button")
+  if cmd == "help" then
+    if printFn then
+      printFn("Commands:")
+      printFn("  |cff00ff00/xp|r - Toggle main panel visibility")
+      printFn("  |cff00ff00/xp <0-2>|r - Set XP rate (e.g. /xp 1.25)")
+      printFn("  |cff00ff00/xp auto [status|on|off]|r - Master automation toggle or status")
+      printFn("  |cff00ff00/xp zone [on|off]|r - Toggle zone auto-scaling")
+      printFn("  |cff00ff00/xp bracket [on|off]|r - Toggle level bracket auto-scaling")
+      printFn("  |cff00ff00/xp disparity [on|off]|r - Toggle party level disparity protection")
+      printFn("  |cff00ff00/xp group [on|off]|r - Toggle party size auto-scaling")
+      printFn("  |cff00ff00/xp mob [on|off]|r - Toggle mob difficulty auto-scaling")
+      printFn("  |cff00ff00/xp quest [on|off]|r - Toggle quest interaction scaling")
+      printFn("  |cff00ff00/xp rested [on|off]|r - Toggle rested XP auto-scaling")
+      printFn("  |cff00ff00/xp minimap|r - Toggle minimap button visibility")
+      printFn("  |cff00ff00/xp status|r - Display automation status summary")
+    end
     return
   end
 
   local val = tonumber(msg)
   if not val then
-    PrintMessage("Invalid value. Type |cff00ff00/xp help|r for usage.")
+    if printFn then printFn("Invalid command or rate value. Type |cff00ff00/xp help|r for usage.") end
     return
   end
 
-  if val < RATE_MIN or val > RATE_MAX then
-    PrintMessage("Rate must be between " .. RATE_MIN .. " and " .. RATE_MAX .. ".")
+  local minRate = XPRate.RATE_MIN or 0.1
+  local maxRate = XPRate.RATE_MAX or 2.0
+  if val < minRate or val > maxRate then
+    if printFn then printFn("Rate must be between " .. minRate .. " and " .. maxRate .. ".") end
     return
   end
 
-  ApplyRate(val)
+  local applyFn = XPRate.ApplyRate or ApplyRate
+  if applyFn then applyFn(val) end
 end
