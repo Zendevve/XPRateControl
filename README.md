@@ -5,7 +5,7 @@ A clean, modern GUI addon for managing experience rate adjustments and Joyous Jo
 ![WoW Version](https://img.shields.io/badge/WoW-3.3.5a-blue?style=flat-square)
 ![Interface](https://img.shields.io/badge/Interface-30300-blue?style=flat-square)
 ![Version](https://img.shields.io/badge/Version-1.2-green?style=flat-square)
-![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
+![License](https://img.shields.io/badge/License-All_Rights_Reserved-red?style=flat-square)
 
 ---
 
