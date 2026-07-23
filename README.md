@@ -4,27 +4,28 @@ A clean, modern GUI addon for managing experience rate adjustments and Joyous Jo
 
 ![WoW Version](https://img.shields.io/badge/WoW-3.3.5a-blue?style=flat-square)
 ![Interface](https://img.shields.io/badge/Interface-30300-blue?style=flat-square)
-![Version](https://img.shields.io/badge/Version-1.2-green?style=flat-square)
+![Version](https://img.shields.io/badge/Version-1.4-green?style=flat-square)
 ![License](https://img.shields.io/badge/License-All_Rights_Reserved-red?style=flat-square)
 
 ---
 
 ## Features
 
-- **Tabbed Interface** — Three distinct, task-focused tabs (Rates, Automation, Buffs) contained in a compact 320x300 window.
+- **Tabbed Interface** — Four distinct, task-focused tabs (`Rates`, `Auto`, `Buffs`, `Settings`) contained in a compact 320x335 window.
 - **Speedometer Dial & Pulse** — Visual gauge displaying your current rate, complete with a scaling text pulse on change and a category tag chip (`OFF`, `SLOW`, `BLIZZLIKE`, `FAST`, `MAX`).
 - **Custom Slider** — Features a custom vertical pill thumb, a left-to-right fill track colored dynamically by the current rate, and a floating value bubble during dragging.
 - **Apply-on-Change Semantics** — Standalone apply buttons are removed. Value modifications (via slider, checkboxes, presets, or inputs) are committed to the server instantly.
 - **In-Panel Toasts** — Provides non-intrusive, bottom-of-panel toast notifications (e.g., `Sent 1.50x ✓`) to confirm action success.
-- **6-Module Advanced Automation Engine (v1.2)**:
+- **7-Module Advanced Automation Engine**:
   - **Level Bracket Auto-Scaling** — Set custom rates per level bracket (1–59, 60–69, 70–79, 80). Rate updates automatically upon leveling up.
   - **Zone / Instance Type Auto-Scaling** — Location-aware rate switching for Open World, 5-Man Dungeons, Raids, and Battlegrounds/Arenas via `IsInInstance()`.
   - **Smart Party Level Disparity Protection** — Automatically dampens XP rate when group members lag behind by a configurable level threshold (e.g., >5 levels).
   - **Party Size Scaling** — Auto-scales rates based on group size (1P–5P).
   - **Mob Difficulty Scaling** — Auto-adjusts rate depending on targeted enemy difficulty color (Gray, Green, Yellow, Orange/Red).
   - **Quest Turn-in Automation** — Automatically switches to a designated rate (default `2.00x`) when interacting with Quest NPCs and restores previous rate on close.
-- **Tiered Priority Hierarchy Evaluator** — Prevents automation conflicts using strict priority order: `Quest NPC > Zone/Instance > Level Bracket > Mob Difficulty > Party Disparity/Scaling > Rested XP`.
-- **Notification Suppression & Quiet Automation Mode (v1.3)** — Fine-grained control over chat messages, toast alerts, and automatic rate-switching notifications. Quiet Automation suppresses all popups and chat messages during automatic rate transitions for seamless gameplay.
+  - **Auto Rested XP** — Automatically switches rates when Rested state is active or inactive.
+- **Tiered Priority Hierarchy Evaluator** — Prevents automation conflicts using strict priority order: `Quest NPC > Zone/Instance > Level Bracket > Mob Difficulty > Party Disparity Protection > Party Size Scaling > Rested XP`.
+- **Dedicated Settings Tab & Quiet Automation Mode (v1.4)** — Dedicated 4th top-level navigation tab providing clean, uncrowded controls for Notification Preferences (Chat, Toasts, Quiet Automation), Minimap Icon visibility, Master Automation Toggle, and Reset Defaults.
 - **Escape Key Reversion** — Pressing ESC inside any rate input field cancels the edit, reverting the text and focus without applying unintended changes.
 - **Window Position Persistence** — Panel drag position is saved in `XPRateControlDB` and restored on login.
 - **Minimap Icon State** — Hourglass icon tint updates dynamically to match active rate color. Flashes orange when automation switches rates.
@@ -54,7 +55,8 @@ Interface/AddOns/XPRateControl/
 │   ├── MinimapButton.lua
 │   ├── TabAutomation.lua
 │   ├── TabBuffs.lua
-│   └── TabRates.lua
+│   ├── TabRates.lua
+│   └── TabSettings.lua
 ├── Init.lua
 ├── XPRateControl.toc
 └── README.md
@@ -71,10 +73,6 @@ Interface/AddOns/XPRateControl/
 ### Rates Tab
 - Drag the **custom slider** or type a value in the **numeric editbox** (0.00 – 2.00). Changes apply immediately on drag release, Enter key press, or focus lost.
 - Click any **preset button** to instantly set and apply common rates (`0x`, `0.5x`, `1x`, `1.5x`, `2x`).
-- Toggle notification settings in the **NOTIFICATIONS** card:
-  - **Chat Messages** — Enable/disable chat box confirmation messages.
-  - **Toast Alerts** — Enable/disable floating toast alerts.
-  - **Quiet Automation** — Suppress all alerts during automated rate switches.
 
 ### Automation Tab
 - Select from **7 automation sub-tabs** using the header dropdown menu:
@@ -88,6 +86,17 @@ Interface/AddOns/XPRateControl/
 
 ### Buffs Tab
 - Check **Enable Joyous Journeys Buff** to toggle the 50% experience gain buff. The large central card lights up when active and desaturates when inactive.
+
+### Settings Tab
+- Configure **Notifications**:
+  - **Chat Messages** — Enable/disable chat frame notification messages.
+  - **Toast Alerts** — Enable/disable floating toast alerts.
+  - **Quiet Auto** — Suppress all alerts during background automated rate switches.
+- Configure **Minimap Button**:
+  - **Show Minimap Icon** — Toggle visibility of the minimap hourglass icon.
+- Perform **Maintenance**:
+  - **Master Automation Toggle** — Enable or disable all 7 automation modules at once.
+  - **Reset Defaults** — Restore all SavedVariables to default configuration.
 
 ---
 

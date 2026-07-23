@@ -17,6 +17,7 @@ DEFAULT_CHAT_FRAME = {
   end
 }
 SlashCmdList = {}
+UISpecialFrames = {}
 
 local registeredEvents = {}
 local createdFrames = {}
@@ -81,6 +82,8 @@ function CreateFrame(frameType, name, parent, template)
       return tex
     end,
     SetSize = function(self, w, h) self.width = w; self.height = h end,
+    SetWidth = function(self, w) self.width = w end,
+    SetHeight = function(self, h) self.height = h end,
     GetSize = function(self) return self.width, self.height end,
     SetPoint = function() end,
     ClearAllPoints = function() end,
@@ -114,6 +117,12 @@ function CreateFrame(frameType, name, parent, template)
     GetValue = function() return 1.0 end,
     SetValue = function() end,
     EnableMouseWheel = function() end,
+    EnableMouse = function() end,
+    SetMovable = function() end,
+    SetClampedToScreen = function() end,
+    RegisterForDrag = function() end,
+    StartMoving = function() end,
+    StopMovingOrSizing = function() end,
     Click = function(self)
       local onClick = self:GetScript("OnClick")
       if onClick then onClick(self) end
@@ -183,8 +192,14 @@ XPRate.FlashMinimapButton = function(rate)
   table.insert(flashMinimapCalls, rate)
 end
 
+local mainFrameChunk = assert(loadfile("UI/MainFrame.lua"))
+mainFrameChunk(addonName, XPRate)
+
 local tabRatesChunk = assert(loadfile("UI/TabRates.lua"))
 tabRatesChunk(addonName, XPRate)
+
+local tabSettingsChunk = assert(loadfile("UI/TabSettings.lua"))
+tabSettingsChunk(addonName, XPRate)
 
 local initChunk = assert(loadfile("Init.lua"))
 initChunk(addonName, XPRate)

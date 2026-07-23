@@ -67,7 +67,7 @@ title:SetTextColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3])
 -- Version
 local version = titleBar:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 version:SetPoint("LEFT", title, "RIGHT", 6, 0)
-version:SetText("v1.1")
+version:SetText("v1.4")
 version:SetTextColor(CLR.dim[1], CLR.dim[2], CLR.dim[3])
 
 -- Close button
@@ -120,16 +120,23 @@ BuffsTabFrame:SetPoint("TOP", frame, "TOP", 0, -68)
 BuffsTabFrame:Hide()
 XPRate.BuffsTabFrame = BuffsTabFrame
 
-local tabFrames = { RatesTabFrame, AutomationTabFrame, BuffsTabFrame }
-local tabColors = { CLR.cyan, CLR.green, CLR.gold }
+local SettingsTabFrame = CreateFrame("Frame", nil, frame)
+SettingsTabFrame:SetSize(308, 230)
+SettingsTabFrame:SetPoint("TOP", frame, "TOP", 0, -68)
+SettingsTabFrame:Hide()
+XPRate.SettingsTabFrame = SettingsTabFrame
+
+local tabFrames = { RatesTabFrame, AutomationTabFrame, BuffsTabFrame, SettingsTabFrame }
+local tabColors = { CLR.cyan, CLR.green, CLR.gold, CLR.cyan }
 
 -- Navigation Tab Bar
 local tabButtons = {}
-local tabNames   = { "Rates", "Automation", "Buffs" }
+local tabNames   = { "Rates", "Auto", "Buffs", "Settings" }
 local tabIcons   = {
   "Interface\\AddOns\\XPRateControl\\Textures\\Icon_XPRate",
   "Interface\\AddOns\\XPRateControl\\Textures\\Icon_Automation",
-  "Interface\\AddOns\\XPRateControl\\Textures\\Icon_Buffs"
+  "Interface\\AddOns\\XPRateControl\\Textures\\Icon_Buffs",
+  "Interface\\Icons\\Trade_Engineering"
 }
 
 function XPRate.SetActiveTab(index)
@@ -158,13 +165,16 @@ function XPRate.SetActiveTab(index)
     if XPRate.updateNormalRow then XPRate.updateNormalRow() end
     if XPRate.updateMobRows then XPRate.updateMobRows() end
     if XPRate.UpdateAutomationStatus then XPRate.UpdateAutomationStatus() end
+  elseif index == 4 then
+    if XPRate.UpdateSettingsTabUI then XPRate.UpdateSettingsTabUI() end
+    if XPRate.UpdateTabSettingsUI then XPRate.UpdateTabSettingsUI() end
   end
 end
 
-for i = 1, 3 do
+for i = 1, 4 do
   local btn = CreateFrame("Button", nil, frame)
-  btn:SetSize(98, 24)
-  btn:SetPoint("TOPLEFT", frame, "TOPLEFT", 10 + (i-1)*101, -38)
+  btn:SetSize(72, 24)
+  btn:SetPoint("TOPLEFT", frame, "TOPLEFT", 10 + (i-1)*76, -38)
 
   btn:SetBackdrop({
     bgFile   = "Interface\\ChatFrame\\ChatFrameBackground",
@@ -180,13 +190,13 @@ for i = 1, 3 do
   highlight:SetBlendMode("ADD")
 
   local icon = btn:CreateTexture(nil, "ARTWORK")
-  icon:SetSize(15, 15)
-  icon:SetPoint("LEFT", btn, "LEFT", 5, 0)
+  icon:SetSize(14, 14)
+  icon:SetPoint("LEFT", btn, "LEFT", 4, 0)
   icon:SetTexture(tabIcons[i])
   btn.icon = icon
 
   local text = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  text:SetPoint("LEFT", icon, "RIGHT", 3, 0)
+  text:SetPoint("LEFT", icon, "RIGHT", 2, 0)
   text:SetText(tabNames[i])
   btn.text = text
 

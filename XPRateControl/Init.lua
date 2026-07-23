@@ -73,6 +73,11 @@ initFrame:SetScript("OnEvent", function(self, event, arg1, ...)
       if XPRate.UpdateAutomationStatus then XPRate.UpdateAutomationStatus() end
     end
 
+    if XPRate.CreateTabSettingsUI and XPRate.SettingsTabFrame then
+      XPRate.CreateTabSettingsUI(XPRate.SettingsTabFrame)
+    end
+    if XPRate.UpdateSettingsTabUI then XPRate.UpdateSettingsTabUI() end
+
     if XPRate.UpdateMinimapButtonPosition then XPRate.UpdateMinimapButtonPosition() end
 
     if db.lastRate and XPRateMinimapButtonBorder then
@@ -283,6 +288,7 @@ SlashCmdList["XPRATECONTROL"] = function(msg)
     XPRate.lastAppliedMode = nil
     if eval then eval(false, "Slash Cmd Master Auto Toggle") end
     if updateUI then updateUI() end
+    if XPRate.UpdateSettingsTabUI then XPRate.UpdateSettingsTabUI() end
     return
   end
 
@@ -377,6 +383,7 @@ SlashCmdList["XPRATECONTROL"] = function(msg)
       printFn("Chat notifications " .. (db.showChat and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
     end
     if XPRate.UpdateTabRatesUI then XPRate.UpdateTabRatesUI() end
+    if XPRate.UpdateSettingsTabUI then XPRate.UpdateSettingsTabUI() end
     return
   end
 
@@ -386,6 +393,7 @@ SlashCmdList["XPRATECONTROL"] = function(msg)
       printFn("Toast notifications " .. (db.showToast and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
     end
     if XPRate.UpdateTabRatesUI then XPRate.UpdateTabRatesUI() end
+    if XPRate.UpdateSettingsTabUI then XPRate.UpdateSettingsTabUI() end
     return
   end
 
@@ -395,6 +403,7 @@ SlashCmdList["XPRATECONTROL"] = function(msg)
       printFn("Quiet automation " .. (db.quietAuto and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
     end
     if XPRate.UpdateTabRatesUI then XPRate.UpdateTabRatesUI() end
+    if XPRate.UpdateSettingsTabUI then XPRate.UpdateSettingsTabUI() end
     return
   end
 
@@ -435,6 +444,7 @@ SlashCmdList["XPRATECONTROL"] = function(msg)
         if printFn then printFn("Minimap button hidden.") end
       end
     end
+    if XPRate.UpdateSettingsTabUI then XPRate.UpdateSettingsTabUI() end
     return
   end
 

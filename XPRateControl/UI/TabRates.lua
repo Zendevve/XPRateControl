@@ -326,99 +326,11 @@ for i, p in ipairs(presets) do
   tinsert(XPRate.ratesPresets, { btn = btn, val = p.val, label = label })
 end
 
--- NOTIFICATIONS Card Section (v1.3)
-local notifCard = CreateFrame("Frame", "XPRateNotifCard", RatesTabFrame)
-notifCard:SetSize(288, 68)
-notifCard:SetPoint("TOPLEFT", RatesTabFrame, "TOPLEFT", 10, -198)
-notifCard:SetBackdrop({
-  bgFile   = "Interface\\ChatFrame\\ChatFrameBackground",
-  edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-  tile = true, tileSize = 10, edgeSize = 10,
-  insets = { left = 2, right = 2, top = 2, bottom = 2 }
-})
-notifCard:SetBackdropColor(0.02, 0.03, 0.05, 0.9)
-notifCard:SetBackdropBorderColor(CLR.cardEdge[1] * 1.3, CLR.cardEdge[2] * 1.3, CLR.cardEdge[3] * 1.3, 0.8)
-
-local notifHeader = notifCard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-notifHeader:SetPoint("TOPLEFT", notifCard, "TOPLEFT", 10, -6)
-notifHeader:SetText("NOTIFICATIONS")
-notifHeader:SetTextColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3])
-
--- Checkbox 1: Chat Messages (TOPLEFT, 12, -26)
-local chatCheckbox = CreateFrame("CheckButton", "XPRateChatCheckbox", notifCard, "UICheckButtonTemplate")
-chatCheckbox:SetSize(20, 20)
-chatCheckbox:SetPoint("TOPLEFT", notifCard, "TOPLEFT", 12, -26)
-XPRate.chatCheckbox = chatCheckbox
-XPRate.showChatCheckbox = chatCheckbox
-
-local chatLabel = notifCard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-chatLabel:SetPoint("LEFT", chatCheckbox, "RIGHT", 4, 0)
-chatLabel:SetText("Chat Messages")
-chatLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
-
-chatCheckbox:SetScript("OnClick", function(self)
-  local enabled = self:GetChecked() and true or false
-  if XPRateControlDB then
-    XPRateControlDB.showChat = enabled
-  end
-end)
-chatCheckbox:SetScript("OnEnter", function(self)
-  ShowTooltip(self, "Enable chat message notifications on rate changes.")
-end)
-chatCheckbox:SetScript("OnLeave", HideTooltip)
-
--- Checkbox 2: Toast Alerts (TOPLEFT, 106, -26)
-local toastCheckbox = CreateFrame("CheckButton", "XPRateToastCheckbox", notifCard, "UICheckButtonTemplate")
-toastCheckbox:SetSize(20, 20)
-toastCheckbox:SetPoint("TOPLEFT", notifCard, "TOPLEFT", 106, -26)
-XPRate.toastCheckbox = toastCheckbox
-XPRate.showToastCheckbox = toastCheckbox
-
-local toastLabel = notifCard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-toastLabel:SetPoint("LEFT", toastCheckbox, "RIGHT", 4, 0)
-toastLabel:SetText("Toast Alerts")
-toastLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
-
-toastCheckbox:SetScript("OnClick", function(self)
-  local enabled = self:GetChecked() and true or false
-  if XPRateControlDB then
-    XPRateControlDB.showToast = enabled
-  end
-end)
-toastCheckbox:SetScript("OnEnter", function(self)
-  ShowTooltip(self, "Enable floating toast popups on rate changes.")
-end)
-toastCheckbox:SetScript("OnLeave", HideTooltip)
-
--- Checkbox 3: Quiet Automation (TOPLEFT, 192, -26)
-local quietCheckbox = CreateFrame("CheckButton", "XPRateQuietCheckbox", notifCard, "UICheckButtonTemplate")
-quietCheckbox:SetSize(20, 20)
-quietCheckbox:SetPoint("TOPLEFT", notifCard, "TOPLEFT", 192, -26)
-XPRate.quietCheckbox = quietCheckbox
-XPRate.quietAutoCheckbox = quietCheckbox
-
-local quietLabel = notifCard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-quietLabel:SetPoint("LEFT", quietCheckbox, "RIGHT", 4, 0)
-quietLabel:SetText("Quiet Automation")
-quietLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
-
-quietCheckbox:SetScript("OnClick", function(self)
-  local enabled = self:GetChecked() and true or false
-  if XPRateControlDB then
-    XPRateControlDB.quietAuto = enabled
-  end
-end)
-quietCheckbox:SetScript("OnEnter", function(self)
-  ShowTooltip(self, "Suppress notifications when rate changes automatically.")
-end)
-quietCheckbox:SetScript("OnLeave", HideTooltip)
-
--- Expose UI sync function
+-- Expose UI sync function (delegates to Settings tab where notifications now reside)
 function XPRate.UpdateTabRatesUI()
-  local db = XPRateControlDB
-  if not db then return end
-  if XPRate.chatCheckbox then XPRate.chatCheckbox:SetChecked(db.showChat ~= false) end
-  if XPRate.toastCheckbox then XPRate.toastCheckbox:SetChecked(db.showToast ~= false) end
-  if XPRate.quietCheckbox then XPRate.quietCheckbox:SetChecked(db.quietAuto == true) end
+  if XPRate.UpdateSettingsTabUI then
+    XPRate.UpdateSettingsTabUI()
+  end
 end
+
 
