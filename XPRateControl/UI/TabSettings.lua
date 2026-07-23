@@ -6,6 +6,8 @@ local ShowTooltip         = XPRate.ShowTooltip
 local HideTooltip         = XPRate.HideTooltip
 local CreateSectionHeader  = XPRate.CreateSectionHeader
 local MakeButton          = XPRate.MakeButton
+local PrintMessage        = XPRate.PrintMessage
+local ShowToast            = XPRate.ShowToast
 
 function XPRate.CreateTabSettingsUI(parent)
   local SettingsTabFrame = parent or XPRate.SettingsTabFrame
@@ -92,6 +94,14 @@ function XPRate.CreateTabSettingsUI(parent)
     "Enable chat message notifications on rate changes.",
     function(self, enabled)
       if XPRateControlDB then XPRateControlDB.showChat = enabled end
+      local printFn = XPRate.PrintMessage or PrintMessage
+      local toastFn = XPRate.ShowToast or ShowToast
+      if printFn then
+        printFn("Chat notifications " .. (enabled and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
+      end
+      if toastFn then
+        toastFn(enabled and "Chat Msg ON [OK]" or "Chat Msg OFF [OK]", false)
+      end
     end
   )
   XPRate.chatCheckbox = XPRate.showChatCheckbox
@@ -103,6 +113,14 @@ function XPRate.CreateTabSettingsUI(parent)
     "Enable floating toast popups on rate changes.",
     function(self, enabled)
       if XPRateControlDB then XPRateControlDB.showToast = enabled end
+      local printFn = XPRate.PrintMessage or PrintMessage
+      local toastFn = XPRate.ShowToast or ShowToast
+      if printFn then
+        printFn("Toast notifications " .. (enabled and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
+      end
+      if toastFn and enabled then
+        toastFn("Toast Alerts ON [OK]", false)
+      end
     end
   )
   XPRate.toastCheckbox = XPRate.showToastCheckbox
@@ -114,6 +132,14 @@ function XPRate.CreateTabSettingsUI(parent)
     "Suppress notifications when rate changes automatically.",
     function(self, enabled)
       if XPRateControlDB then XPRateControlDB.quietAuto = enabled end
+      local printFn = XPRate.PrintMessage or PrintMessage
+      local toastFn = XPRate.ShowToast or ShowToast
+      if printFn then
+        printFn("Quiet automation " .. (enabled and "|cff20cc50enabled|r" or "|cffcc3535disabled|r"))
+      end
+      if toastFn then
+        toastFn(enabled and "Quiet Auto ON [OK]" or "Quiet Auto OFF [OK]", false)
+      end
     end
   )
   XPRate.quietCheckbox = XPRate.quietAutoCheckbox
@@ -147,6 +173,14 @@ function XPRate.CreateTabSettingsUI(parent)
       if XPRateControlDB then XPRateControlDB.showMinimap = enabled end
       if XPRate.minimapButton then
         if enabled then XPRate.minimapButton:Show() else XPRate.minimapButton:Hide() end
+      end
+      local printFn = XPRate.PrintMessage or PrintMessage
+      local toastFn = XPRate.ShowToast or ShowToast
+      if printFn then
+        printFn("Minimap icon " .. (enabled and "|cff20cc50shown|r" or "|cffcc3535hidden|r"))
+      end
+      if toastFn then
+        toastFn(enabled and "Minimap Icon ON [OK]" or "Minimap Icon OFF [OK]", false)
       end
     end
   )
@@ -194,6 +228,15 @@ function XPRate.CreateTabSettingsUI(parent)
       end
       if XPRate.UpdateAutomationTabUI then XPRate.UpdateAutomationTabUI() end
       if XPRate.UpdateSettingsTabUI then XPRate.UpdateSettingsTabUI() end
+
+      local printFn = XPRate.PrintMessage or PrintMessage
+      local toastFn = XPRate.ShowToast or ShowToast
+      if printFn then
+        printFn("Master Automation " .. (enabled and "|cff20cc50enabled|r (all 7 modules)" or "|cffcc3535disabled|r"))
+      end
+      if toastFn then
+        toastFn(enabled and "Master Auto ON [OK]" or "Master Auto OFF [OK]", false)
+      end
     end
   )
 
