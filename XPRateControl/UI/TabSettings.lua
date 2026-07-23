@@ -10,15 +10,66 @@ local MakeButton          = XPRate.MakeButton
 function XPRate.CreateTabSettingsUI(parent)
   local SettingsTabFrame = parent or XPRate.SettingsTabFrame
   if not SettingsTabFrame then return end
+  if SettingsTabFrame.isBuilt then
+    XPRate.UpdateSettingsTabUI()
+    return
+  end
+  SettingsTabFrame.isBuilt = true
 
   -- Header
   CreateSectionHeader(SettingsTabFrame, "SETTINGS", "Interface\\Icons\\Trade_Engineering", CLR.cyan)
 
+  -- Helper function to create a clean, clickable checkbox with label & tooltips
+  local function CreateSettingCheckbox(parentFrame, globalName, xOfs, yOfs, labelText, tooltipText, onClickCallback)
+    local cb = CreateFrame("CheckButton", globalName, parentFrame, "UICheckButtonTemplate")
+    cb:SetSize(20, 20)
+    cb:SetPoint("TOPLEFT", parentFrame, "TOPLEFT", xOfs, yOfs)
+
+    local labelBtn = CreateFrame("Button", nil, parentFrame)
+    labelBtn:SetPoint("LEFT", cb, "RIGHT", 4, 0)
+
+    local fontString = labelBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    fontString:SetPoint("LEFT", labelBtn, "LEFT", 0, 0)
+    fontString:SetText(labelText)
+    fontString:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+
+    labelBtn:SetSize(fontString:GetStringWidth() + 6, 20)
+
+    cb:SetScript("OnClick", function(self)
+      local checked = self:GetChecked() and true or false
+      self:SetChecked(checked)
+      if onClickCallback then
+        onClickCallback(self, checked)
+      end
+    end)
+
+    labelBtn:SetScript("OnClick", function()
+      cb:Click()
+    end)
+
+    local function OnEnter(self)
+      fontString:SetTextColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3])
+      if tooltipText then ShowTooltip(self, tooltipText) end
+    end
+
+    local function OnLeave(self)
+      fontString:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+      HideTooltip()
+    end
+
+    cb:SetScript("OnEnter", OnEnter)
+    cb:SetScript("OnLeave", OnLeave)
+    labelBtn:SetScript("OnEnter", OnEnter)
+    labelBtn:SetScript("OnLeave", OnLeave)
+
+    return cb
+  end
+
   -- =========================================================================
-  -- Card 1: Notifications (notifCard, Y = -28, Height = 56)
+  -- Card 1: Notifications (notifCard, Y = -28, Height = 74)
   -- =========================================================================
   local notifCard = CreateFrame("Frame", "XPRateSettingsNotifCard", SettingsTabFrame)
-  notifCard:SetSize(288, 56)
+  notifCard:SetSize(288, 74)
   notifCard:SetPoint("TOPLEFT", SettingsTabFrame, "TOPLEFT", 10, -28)
   notifCard:SetBackdrop({
     bgFile   = "Interface\\ChatFrame\\ChatFrameBackground",
@@ -34,75 +85,45 @@ function XPRate.CreateTabSettingsUI(parent)
   notifHeader:SetText("NOTIFICATIONS")
   notifHeader:SetTextColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3])
 
-  -- Checkbox 1: Chat Messages
-  local chatCheckbox = CreateFrame("CheckButton", "XPRateSettingsChatCheckbox", notifCard, "UICheckButtonTemplate")
-  chatCheckbox:SetSize(20, 20)
-  chatCheckbox:SetPoint("TOPLEFT", notifCard, "TOPLEFT", 10, -24)
-  XPRate.chatCheckbox = chatCheckbox
-  XPRate.showChatCheckbox = chatCheckbox
+  -- Checkbox 1: Chat Messages (Row 1 Left)
+  XPRate.showChatCheckbox = CreateSettingCheckbox(
+    notifCard, "XPRateSettingsChatCheckbox", 10, -24,
+    "Chat Messages",
+    "Enable chat message notifications on rate changes.",
+    function(self, enabled)
+      if XPRateControlDB then XPRateControlDB.showChat = enabled end
+    end
+  )
+  XPRate.chatCheckbox = XPRate.showChatCheckbox
 
-  local chatLabel = notifCard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  chatLabel:SetPoint("LEFT", chatCheckbox, "RIGHT", 4, 0)
-  chatLabel:SetText("Chat Messages")
-  chatLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
+  -- Checkbox 2: Toast Alerts (Row 1 Right)
+  XPRate.showToastCheckbox = CreateSettingCheckbox(
+    notifCard, "XPRateSettingsToastCheckbox", 150, -24,
+    "Toast Alerts",
+    "Enable floating toast popups on rate changes.",
+    function(self, enabled)
+      if XPRateControlDB then XPRateControlDB.showToast = enabled end
+    end
+  )
+  XPRate.toastCheckbox = XPRate.showToastCheckbox
 
-  chatCheckbox:SetScript("OnClick", function(self)
-    local enabled = self:GetChecked() and true or false
-    if XPRateControlDB then XPRateControlDB.showChat = enabled end
-  end)
-  chatCheckbox:SetScript("OnEnter", function(self)
-    ShowTooltip(self, "Enable chat message notifications on rate changes.")
-  end)
-  chatCheckbox:SetScript("OnLeave", HideTooltip)
-
-  -- Checkbox 2: Toast Alerts
-  local toastCheckbox = CreateFrame("CheckButton", "XPRateSettingsToastCheckbox", notifCard, "UICheckButtonTemplate")
-  toastCheckbox:SetSize(20, 20)
-  toastCheckbox:SetPoint("TOPLEFT", notifCard, "TOPLEFT", 104, -24)
-  XPRate.toastCheckbox = toastCheckbox
-  XPRate.showToastCheckbox = toastCheckbox
-
-  local toastLabel = notifCard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  toastLabel:SetPoint("LEFT", toastCheckbox, "RIGHT", 4, 0)
-  toastLabel:SetText("Toast Alerts")
-  toastLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
-
-  toastCheckbox:SetScript("OnClick", function(self)
-    local enabled = self:GetChecked() and true or false
-    if XPRateControlDB then XPRateControlDB.showToast = enabled end
-  end)
-  toastCheckbox:SetScript("OnEnter", function(self)
-    ShowTooltip(self, "Enable floating toast popups on rate changes.")
-  end)
-  toastCheckbox:SetScript("OnLeave", HideTooltip)
-
-  -- Checkbox 3: Quiet Auto
-  local quietCheckbox = CreateFrame("CheckButton", "XPRateSettingsQuietCheckbox", notifCard, "UICheckButtonTemplate")
-  quietCheckbox:SetSize(20, 20)
-  quietCheckbox:SetPoint("TOPLEFT", notifCard, "TOPLEFT", 192, -24)
-  XPRate.quietCheckbox = quietCheckbox
-  XPRate.quietAutoCheckbox = quietCheckbox
-
-  local quietLabel = notifCard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  quietLabel:SetPoint("LEFT", quietCheckbox, "RIGHT", 4, 0)
-  quietLabel:SetText("Quiet Auto")
-  quietLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
-
-  quietCheckbox:SetScript("OnClick", function(self)
-    local enabled = self:GetChecked() and true or false
-    if XPRateControlDB then XPRateControlDB.quietAuto = enabled end
-  end)
-  quietCheckbox:SetScript("OnEnter", function(self)
-    ShowTooltip(self, "Suppress notifications when rate changes automatically.")
-  end)
-  quietCheckbox:SetScript("OnLeave", HideTooltip)
+  -- Checkbox 3: Quiet Automation (Row 2 Left)
+  XPRate.quietAutoCheckbox = CreateSettingCheckbox(
+    notifCard, "XPRateSettingsQuietCheckbox", 10, -48,
+    "Quiet Automation",
+    "Suppress notifications when rate changes automatically.",
+    function(self, enabled)
+      if XPRateControlDB then XPRateControlDB.quietAuto = enabled end
+    end
+  )
+  XPRate.quietCheckbox = XPRate.quietAutoCheckbox
 
   -- =========================================================================
-  -- Card 2: Minimap Button (minimapCard, Y = -90, Height = 54)
+  -- Card 2: Minimap Button (minimapCard, Y = -108, Height = 46)
   -- =========================================================================
   local minimapCard = CreateFrame("Frame", "XPRateSettingsMinimapCard", SettingsTabFrame)
-  minimapCard:SetSize(288, 54)
-  minimapCard:SetPoint("TOPLEFT", SettingsTabFrame, "TOPLEFT", 10, -90)
+  minimapCard:SetSize(288, 46)
+  minimapCard:SetPoint("TOPLEFT", SettingsTabFrame, "TOPLEFT", 10, -108)
   minimapCard:SetBackdrop({
     bgFile   = "Interface\\ChatFrame\\ChatFrameBackground",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -118,34 +139,24 @@ function XPRate.CreateTabSettingsUI(parent)
   minimapHeader:SetTextColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3])
 
   -- Checkbox: Show Minimap Icon
-  local minimapCheckbox = CreateFrame("CheckButton", "XPRateSettingsMinimapCheckbox", minimapCard, "UICheckButtonTemplate")
-  minimapCheckbox:SetSize(20, 20)
-  minimapCheckbox:SetPoint("TOPLEFT", minimapCard, "TOPLEFT", 10, -24)
-  XPRate.showMinimapCheckbox = minimapCheckbox
-
-  local minimapLabel = minimapCard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  minimapLabel:SetPoint("LEFT", minimapCheckbox, "RIGHT", 4, 0)
-  minimapLabel:SetText("Show Minimap Icon")
-  minimapLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
-
-  minimapCheckbox:SetScript("OnClick", function(self)
-    local enabled = self:GetChecked() and true or false
-    if XPRateControlDB then XPRateControlDB.showMinimap = enabled end
-    if XPRate.minimapButton then
-      if enabled then XPRate.minimapButton:Show() else XPRate.minimapButton:Hide() end
+  XPRate.showMinimapCheckbox = CreateSettingCheckbox(
+    minimapCard, "XPRateSettingsMinimapCheckbox", 10, -22,
+    "Show Minimap Icon",
+    "Toggle visibility of the minimap hourglass button.",
+    function(self, enabled)
+      if XPRateControlDB then XPRateControlDB.showMinimap = enabled end
+      if XPRate.minimapButton then
+        if enabled then XPRate.minimapButton:Show() else XPRate.minimapButton:Hide() end
+      end
     end
-  end)
-  minimapCheckbox:SetScript("OnEnter", function(self)
-    ShowTooltip(self, "Toggle visibility of the minimap hourglass button.")
-  end)
-  minimapCheckbox:SetScript("OnLeave", HideTooltip)
+  )
 
   -- =========================================================================
-  -- Card 3: Maintenance (maintCard, Y = -148, Height = 76)
+  -- Card 3: Maintenance (maintCard, Y = -160, Height = 68)
   -- =========================================================================
   local maintCard = CreateFrame("Frame", "XPRateSettingsMaintCard", SettingsTabFrame)
-  maintCard:SetSize(288, 76)
-  maintCard:SetPoint("TOPLEFT", SettingsTabFrame, "TOPLEFT", 10, -148)
+  maintCard:SetSize(288, 68)
+  maintCard:SetPoint("TOPLEFT", SettingsTabFrame, "TOPLEFT", 10, -160)
   maintCard:SetBackdrop({
     bgFile   = "Interface\\ChatFrame\\ChatFrameBackground",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -161,40 +172,30 @@ function XPRate.CreateTabSettingsUI(parent)
   maintHeader:SetTextColor(CLR.cyan[1], CLR.cyan[2], CLR.cyan[3])
 
   -- Checkbox: Master Automation Toggle
-  local masterCheckbox = CreateFrame("CheckButton", "XPRateMasterEnableCheckbox", maintCard, "UICheckButtonTemplate")
-  masterCheckbox:SetSize(20, 20)
-  masterCheckbox:SetPoint("TOPLEFT", maintCard, "TOPLEFT", 10, -22)
-  XPRate.masterEnableCheckbox = masterCheckbox
-
-  local masterLabel = maintCard:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-  masterLabel:SetPoint("LEFT", masterCheckbox, "RIGHT", 4, 0)
-  masterLabel:SetText("Master Automation Toggle (All Modules)")
-  masterLabel:SetTextColor(CLR.white[1], CLR.white[2], CLR.white[3])
-
-  masterCheckbox:SetScript("OnClick", function(self)
-    local enabled = self:GetChecked() and true or false
-    local db = XPRateControlDB
-    if db then
-      db.autoRested    = enabled
-      db.autoGroup     = enabled
-      db.autoDisparity = enabled
-      db.autoMob       = enabled
-      db.autoQuest     = enabled
-      db.autoBracket   = enabled
-      db.autoZone      = enabled
+  XPRate.masterEnableCheckbox = CreateSettingCheckbox(
+    maintCard, "XPRateMasterEnableCheckbox", 10, -20,
+    "Master Automation Toggle (All Modules)",
+    "Enable or disable all 7 automation modules simultaneously.",
+    function(self, enabled)
+      local db = XPRateControlDB
+      if db then
+        db.autoRested    = enabled
+        db.autoGroup     = enabled
+        db.autoDisparity = enabled
+        db.autoMob       = enabled
+        db.autoQuest     = enabled
+        db.autoBracket   = enabled
+        db.autoZone      = enabled
+      end
+      XPRate.lastAppliedRate = nil
+      XPRate.lastAppliedMode = nil
+      if XPRate.EvaluateAutomation then
+        XPRate.EvaluateAutomation(false, enabled and "Master Enable ON" or "Master Enable OFF")
+      end
+      if XPRate.UpdateAutomationTabUI then XPRate.UpdateAutomationTabUI() end
+      if XPRate.UpdateSettingsTabUI then XPRate.UpdateSettingsTabUI() end
     end
-    XPRate.lastAppliedRate = nil
-    XPRate.lastAppliedMode = nil
-    if XPRate.EvaluateAutomation then
-      XPRate.EvaluateAutomation(false, enabled and "Master Enable ON" or "Master Enable OFF")
-    end
-    if XPRate.UpdateAutomationTabUI then XPRate.UpdateAutomationTabUI() end
-    if XPRate.UpdateSettingsTabUI then XPRate.UpdateSettingsTabUI() end
-  end)
-  masterCheckbox:SetScript("OnEnter", function(self)
-    ShowTooltip(self, "Enable or disable all 7 automation modules simultaneously.")
-  end)
-  masterCheckbox:SetScript("OnLeave", HideTooltip)
+  )
 
   -- Reset Defaults Button
   local resetBtn = MakeButton and MakeButton(maintCard, 268, 20, CLR.btnBg, CLR.btnEdge) or CreateFrame("Button", nil, maintCard)
@@ -207,7 +208,7 @@ function XPRate.CreateTabSettingsUI(parent)
       insets = { left = 1, right = 1, top = 1, bottom = 1 }
     })
   end
-  resetBtn:SetPoint("TOPLEFT", maintCard, "TOPLEFT", 10, -48)
+  resetBtn:SetPoint("TOPLEFT", maintCard, "TOPLEFT", 10, -42)
   resetBtn:SetBackdropColor(CLR.btnBg[1], CLR.btnBg[2], CLR.btnBg[3], 0.85)
   resetBtn:SetBackdropBorderColor(CLR.btnEdge[1], CLR.btnEdge[2], CLR.btnEdge[3], 0.6)
 
