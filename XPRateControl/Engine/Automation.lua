@@ -159,7 +159,7 @@ function XPRate.EvaluateAutomation(silent, reason)
   local effectiveSilent = silent or (db and db.quietAuto == true)
 
   local gSize = XPRate.GetCurrentGroupSize()
-  local isRested = (GetRestState() == 2)
+  local isRested = (GetRestState() == 1)
   local mobCategory, mobLabel = XPRate.GetUnitDifficultyCategory("target")
   local playerLevel = (UnitLevel and UnitLevel("player")) or 1
 
@@ -245,7 +245,7 @@ function XPRate.UpdateAutomationStatus()
   if not db then return end
 
   local gSize = XPRate.GetCurrentGroupSize()
-  local isRested = (GetRestState() == 2)
+  local isRested = (GetRestState() == 1)
 
   if XPRate.restedStateValue then
     if isRested then
