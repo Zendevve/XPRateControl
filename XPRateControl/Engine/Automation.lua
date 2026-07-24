@@ -159,7 +159,7 @@ function XPRate.EvaluateAutomation(silent, reason)
   local effectiveSilent = silent or (db and db.quietAuto == true)
 
   local gSize = XPRate.GetCurrentGroupSize()
-  local isRested = (GetXPExhaustion and GetXPExhaustion() and GetXPExhaustion() > 0) or false
+  local isRested = (GetRestState() == 2)
   local mobCategory, mobLabel = XPRate.GetUnitDifficultyCategory("target")
   local playerLevel = (UnitLevel and UnitLevel("player")) or 1
 
@@ -171,44 +171,52 @@ function XPRate.EvaluateAutomation(silent, reason)
     targetRate = db.questRate or 2.00
     activeMode = "Quest Interaction"
 
-  -- 2. Zone / Instance Type
-  elseif db.autoZone and db.zoneRates and db.zoneRates[XPRate.GetCurrentZoneType()] ~= nil then
+  -- 2. Zone / Instance Type (Instance/PvP overrides Rested/Mob)
+  elseif db.autoZone and XPRate.GetCurrentZoneType() ~= "world" and db.zoneRates and db.zoneRates[XPRate.GetCurrentZoneType()] ~= nil then
     local zoneCat, zoneLabel = XPRate.GetCurrentZoneType()
     targetRate = db.zoneRates[zoneCat]
     activeMode = "Zone (" .. zoneLabel .. ")"
 
-  -- 3. Level Brackets
+  -- 3. Party Disparity Protection (Overrides Rested/Mob)
+  elseif db.autoDisparity and gSize > 1 and XPRate.GetMaxPartyLevelDisparity() > (db.disparityThreshold or 5) then
+    targetRate = db.disparityRate or 0.50
+    activeMode = string.format("Party Disparity (>%d Levels)", db.disparityThreshold or 5)
+
+  -- 4. Party Size Scaling (Group > 1 overrides Rested/Mob)
+  elseif db.autoGroup and gSize > 1 then
+    local mappedSize = math.min(gSize, 5)
+    targetRate = (db.groupRates and db.groupRates[mappedSize]) or 1.00
+    local stateText = (gSize >= 5) and "5P Group" or (gSize .. "P Group")
+    activeMode = "Party Scaling (" .. stateText .. ")"
+
+  -- 5. Mob Difficulty (Overrides Rested)
+  elseif db.autoMob and mobCategory and db.mobRates and db.mobRates[mobCategory] ~= nil then
+    targetRate = db.mobRates[mobCategory]
+    activeMode = "Mob Difficulty (" .. mobLabel .. ")"
+
+  -- 6. Rested XP (Takes priority over Level Brackets and Fallbacks!)
+  elseif db.autoRested and isRested then
+    targetRate = db.restedRate or 2.00
+    activeMode = "Auto Rested (Rested)"
+
+  -- 7. Level Brackets (Only if not Rested/Mob/Party/Instance)
   elseif db.autoBracket and XPRate.GetMatchingLevelBracket(playerLevel) and XPRate.GetMatchingLevelBracket(playerLevel).rate ~= nil then
     local bracket = XPRate.GetMatchingLevelBracket(playerLevel)
     targetRate = bracket.rate
     activeMode = string.format("Level Bracket (%d-%d)", bracket.min or 1, bracket.max or 80)
 
-  -- 4. Mob Difficulty
-  elseif db.autoMob and mobCategory and db.mobRates and db.mobRates[mobCategory] ~= nil then
-    targetRate = db.mobRates[mobCategory]
-    activeMode = "Mob Difficulty (" .. mobLabel .. ")"
-
-  -- 5. Party Scaling / Disparity
-  elseif db.autoDisparity and gSize > 1 and XPRate.GetMaxPartyLevelDisparity() > (db.disparityThreshold or 5) then
-    targetRate = db.disparityRate or 0.50
-    activeMode = string.format("Party Disparity (>%d Levels)", db.disparityThreshold or 5)
+  -- 8. Fallbacks (If nothing active above triggered, use the base rates in order of importance)
+  elseif db.autoZone and db.zoneRates and db.zoneRates["world"] ~= nil then
+    targetRate = db.zoneRates["world"]
+    activeMode = "Zone (Open World)"
 
   elseif db.autoGroup then
-    if gSize > 1 then
-      local mappedSize = math.min(gSize, 5)
-      targetRate = (db.groupRates and db.groupRates[mappedSize]) or 1.00
-      local stateText = (gSize >= 5) and "5P Group" or (gSize .. "P Group")
-      activeMode = "Party Scaling (" .. stateText .. ")"
-    else
-      targetRate = (db.groupRates and db.groupRates[1]) or 1.00
-      activeMode = "Party Scaling (Solo)"
-    end
+    targetRate = (db.groupRates and db.groupRates[1]) or 1.00
+    activeMode = "Party Scaling (Solo)"
 
-  -- 6. Rested XP
   elseif db.autoRested then
-    targetRate = isRested and db.restedRate or db.normalRate
-    local stateStr = isRested and "Rested" or "Normal"
-    activeMode = "Auto Rested (" .. stateStr .. ")"
+    targetRate = db.normalRate or 1.00
+    activeMode = "Auto Rested (Normal)"
   end
 
   if targetRate then
@@ -237,7 +245,7 @@ function XPRate.UpdateAutomationStatus()
   if not db then return end
 
   local gSize = XPRate.GetCurrentGroupSize()
-  local isRested = (GetXPExhaustion and GetXPExhaustion() and GetXPExhaustion() > 0) or false
+  local isRested = (GetRestState() == 2)
 
   if XPRate.restedStateValue then
     if isRested then
